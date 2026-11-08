@@ -1,12 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import { expect, type Page } from "@playwright/test";
+import { addDays, localDate } from "../../src/shared/dates";
 import { MAIN } from "../../playwright.config";
 
-const localDate = (d = new Date()): string =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 export const TODAY = localDate();
-const daysAgo = (n: number): string => localDate(new Date(Date.now() - n * 86400000));
+const daysAgo = (n: number): string => localDate(addDays(new Date(), -n));
 
 export const dataDir = (root = MAIN.root): string => path.join(root, "data");
 export const configDir = (root = MAIN.root): string => path.join(root, "config");

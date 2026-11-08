@@ -4,7 +4,7 @@ Kip is a personal, local-only morning briefing app (red theme). Read `docs/PROJE
 
 ## Commands
 - `./scripts/start.sh [--refresh]` run everything (Git Bash on Windows) · `scripts/generate.sh` brief only · `scripts/stop.sh` fallback stop
-- `npm run typecheck` · `npm test` · `npm run build` · `npm run generate` · `npm run serve`
+- `npm run test:e2e` Playwright UI tests (builds first) · `npm run typecheck` · `npm test` · `npm run build` · `npm run generate` · `npm run serve`
 - Always run `npm run typecheck && npm test` before committing.
 
 ## Layout
