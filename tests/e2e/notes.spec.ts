@@ -1,14 +1,14 @@
 import fs from "node:fs";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { dataDir, next, reset, startWalk, TODAY } from "./helpers";
+import { dataDir, next, reset, startWalk, toNotesTab, TODAY } from "./helpers";
 
 const items = (page: Page) => page.getByTestId("note-item");
 const stateFile = (): Record<string, { completed?: boolean; priority?: boolean; deleted?: boolean }> =>
   JSON.parse(fs.readFileSync(path.join(dataDir(), "note-state.json"), "utf8"));
 async function toNotes(page: Page): Promise<void> {
   await startWalk(page);
-  await next(page).click();
+  await toNotesTab(page);
   await expect(page.getByRole("heading", { name: /Your notes/ })).toBeVisible();
 }
 
@@ -191,7 +191,7 @@ test.describe("with two saved notes", () => {
 test.describe("adding notes", () => {
   test.beforeEach(() => reset());
 
-  const toCapture = async (page: Page) => { await startWalk(page); await next(page).click(); await next(page).click(); };
+  const toCapture = async (page: Page) => { await startWalk(page); await toNotesTab(page); await next(page).click(); };
   const notesFile = () => path.join(dataDir(), "notes", `${TODAY}.md`);
 
   test("there is no Save button; the note is saved automatically when you leave the page", async ({ page }) => {
@@ -228,7 +228,7 @@ test.describe("adding notes", () => {
 
   test("the voice control or its fallback message is shown", async ({ page }) => {
     await startWalk(page);
-    await next(page).click();
+    await toNotesTab(page);
     await next(page).click();
     await expect(page.getByRole("button", { name: /Speak/ }).or(page.getByText("Voice dictation isn't available"))).toBeVisible();
   });

@@ -20,7 +20,7 @@ export function Reader({ slides, idx, setIdx, titleOf, onFinish, onClose, finish
   const next = slides[idx + 1];
   const nextLabel = last ? finishLabel : next && next.group !== slide.group ? `Next: ${titleOf(next.group)} →` : "Next →";
   const first = (tab: "teaser" | "notes") => slides.findIndex((x) => x.group === "warm" && x.tab === tab);
-  const counter = slide.kind === "item" ? `${slide.section.title} · ${slide.n} of ${slide.of}` : slide.kind === "notes" ? `Notes · page ${slide.n} of ${slide.of}` : titleOf(slide.group);
+  const counter = slide.kind === "puzzle" ? `Brain teaser · puzzle ${slide.n} of ${slide.of}` : slide.kind === "item" ? `${slide.section.title} · ${slide.n} of ${slide.of}` : slide.kind === "notes" ? `Notes · page ${slide.n} of ${slide.of}` : titleOf(slide.group);
   return (
     <main className="panel walk" role="dialog" aria-label={titleOf(slide.group)}>
       <div className="panel-head">

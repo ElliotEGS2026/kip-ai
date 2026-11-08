@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Briefing } from "../shared/schema";
+import type { Briefing, Section } from "../shared/schema";
 import { pad } from "../shared/dates";
 import { api, today } from "./api";
 import { SECTION_ICON } from "./format";
@@ -10,7 +10,7 @@ import { Kips } from "./Kips";
 import { Starfield } from "./Starfield";
 
 const GROUP_TITLE: Record<string, string> = { warm: "Warm-up" };
-const countLabel = (s: { status: string; items: unknown[] }): string => (s.status === "ok" ? String(s.items.length) : s.status === "error" ? "!" : "–");
+const countLabel = (s: Section): string => (s.status === "ok" ? String(s.id === "chess" ? s.puzzles?.length ?? (s.puzzle ? 1 : 0) : s.items.length) : s.status === "error" ? "!" : "–");
 
 type Panel = { kind: "group"; group: string; idx: number } | null;
 

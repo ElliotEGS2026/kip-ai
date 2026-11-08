@@ -7,6 +7,7 @@ import { dataDir, fixturePath, webDist } from "../shared/paths.js";
 import { localDate } from "../shared/dates.js";
 import { markSeen, readSeen } from "../shared/seen.js";
 import { readChess, recordResult } from "../shared/chessState.js";
+import type { Outcome } from "../shared/schema.js";
 import { NoteStateInput, editNote, readNoteText, setNoteState } from "../shared/notes.js";
 import { refreshNotes } from "../generator/refresh.js";
 import { guard, type Guard } from "./security.js";
@@ -23,6 +24,13 @@ const MIME: Record<string, string> = {
 function flagSeen<T extends { sections: { id: string; items: { id: string; seen?: boolean }[] }[] }>(b: T): T {
   const seen = readSeen();
   for (const s of b.sections) if (s.id === "work" || s.id === "world") for (const i of s.items) if (seen[i.id]) i.seen = true;
+  return b;
+}
+
+/** Fills in how today's puzzles went (if answered), so the page can show it when you come back to them. */
+function flagPuzzles<T extends { date: string; sections: { id: string; puzzle?: { id: string; result?: Outcome }; puzzles?: { id: string; result?: Outcome }[] }[] }>(b: T): T {
+  const done = new Map(readChess().history.filter((h) => h.date === b.date).map((h) => [h.puzzleId, h.outcome ?? (h.solved ? "solved" : "missed")] as const));
+  for (const s of b.sections) if (s.id === "chess") for (const p of [...(s.puzzles ?? []), ...(s.puzzle ? [s.puzzle] : [])]) { const r = done.get(p.id); if (r) p.result = r; }
   return b;
 }
 
@@ -43,10 +51,10 @@ export function buildApp(opts: AppOptions): FastifyInstance {
       const parsed = BriefingSchema.safeParse(JSON.parse(fs.readFileSync(file, "utf8")));
       if (!parsed.success) return reply.code(500).send({ error: "stored briefing failed validation" });
       // Today's notes may have been written after the morning generation: rebuild the note-dependent sections.
-      return flagSeen(date.data === localDate() ? await refreshNotes(parsed.data) : parsed.data);
+      return flagPuzzles(flagSeen(date.data === localDate() ? await refreshNotes(parsed.data) : parsed.data));
     }
     if (date.data === localDate()) {
-      return flagSeen({ ...JSON.parse(fs.readFileSync(fixturePath(), "utf8")), date: date.data, sample: true });
+      return flagPuzzles(flagSeen({ ...JSON.parse(fs.readFileSync(fixturePath(), "utf8")), date: date.data, sample: true }));
     }
     return reply.code(404).send({ error: "no briefing for that date" });
   });
@@ -73,7 +81,8 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   app.post("/api/puzzle-result", async (req, reply) => {
     const body = PuzzleResultInput.safeParse(req.body);
     if (!body.success) return reply.code(400).send({ error: "invalid input" });
-    const s = recordResult(body.data.puzzleId, body.data.theme, body.data.solved);
+    const { puzzleId, theme, outcome, solved, seconds, index } = body.data;
+    const s = recordResult(puzzleId, theme, outcome ?? (solved ? "solved" : "missed"), { ...(seconds !== undefined ? { seconds } : {}), ...(index !== undefined ? { index } : {}) });
     return { themes: s.themes };
   });
   app.get("/api/puzzle-stats", async () => readChess());

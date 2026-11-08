@@ -7,6 +7,7 @@ export interface Result {
   warnings?: string[];
   items?: Item[];
   puzzle?: Puzzle;
+  puzzles?: Puzzle[];
 }
 export type Collector = (ctx: Ctx) => Promise<Result>;
 /** Throw from a collector when its source isn't set up (renders as a "not set up" card, not an error). */

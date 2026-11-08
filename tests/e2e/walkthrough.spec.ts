@@ -35,7 +35,8 @@ test("walks every section in the fixed order, one slide at a time", async ({ pag
     await next(page).click();
   }
   expect(counters).toEqual([
-    "Warm-up", "Warm-up", "Warm-up", // puzzle, notes (none), add-a-note
+    "Brain teaser · puzzle 1 of 3", "Brain teaser · puzzle 2 of 3", "Brain teaser · puzzle 3 of 3",
+    "Warm-up", "Warm-up", // notes (none), add-a-note
     "Today's meetings · 1 of 1",
     "Email",
     "Job-critical · 1 of 2", "Job-critical · 2 of 2",
@@ -49,7 +50,8 @@ test("walks every section in the fixed order, one slide at a time", async ({ pag
 test("Next button announces the next section when the group changes", async ({ page }) => {
   await startWalk(page);
   await expect(next(page)).toHaveText("Next →");
-  await next(page).click(); // notes status
+  for (let i = 0; i < 3; i++) await next(page).click(); // past the 3 puzzles, onto the notes status slide
+  await expect(next(page)).toHaveText("Next →");
   await next(page).click(); // add a note
   await expect(next(page)).toHaveText("Next: Today's meetings →");
 });
@@ -91,11 +93,11 @@ test("keyboard: arrows move, Escape finishes, Back is disabled on the first slid
   await startWalk(page);
   await expect(back(page)).toBeDisabled();
   await page.keyboard.press("ArrowRight");
-  await expect(page.locator(".panel-head .core")).toContainText("2/10");
+  await expect(page.locator(".panel-head .core")).toContainText("2/12");
   await page.keyboard.press("ArrowLeft");
-  await expect(page.locator(".panel-head .core")).toContainText("1/10");
+  await expect(page.locator(".panel-head .core")).toContainText("1/12");
   await page.keyboard.press("Enter");
-  await expect(page.locator(".panel-head .core")).toContainText("2/10");
+  await expect(page.locator(".panel-head .core")).toContainText("2/12");
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.locator(".orb")).toHaveCount(7);

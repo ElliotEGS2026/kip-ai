@@ -159,3 +159,19 @@ describe("seen items", () => {
     expect((await post("/api/seen", noToken, { ids: ["w1"] })).statusCode).toBe(403);
   });
 });
+
+describe("puzzle results with detail", () => {
+  it("accepts an outcome with time and position, rejects bad values, and shows the answer on the next brief", async () => {
+    const ok = await post("/api/puzzle-result", good, { puzzleId: "sample-fork", theme: "fork", outcome: "helped", seconds: 75, index: 1 });
+    expect(ok.statusCode).toBe(200);
+    const stats = JSON.parse(fs.readFileSync(path.join(process.env.KIP_DATA_DIR!, "chess-weaknesses.json"), "utf8"));
+    expect(stats.history[0]).toMatchObject({ puzzleId: "sample-fork", outcome: "helped", solved: true, seconds: 75, index: 1 });
+    expect(stats.themes.fork).toMatchObject({ attempts: 1, fails: 0.5, seconds: 75 });
+    expect((await post("/api/puzzle-result", good, { puzzleId: "p", theme: "fork", outcome: "bogus" })).statusCode).toBe(400);
+    expect((await post("/api/puzzle-result", good, { puzzleId: "p", theme: "fork", outcome: "solved", seconds: 99999 })).statusCode).toBe(400);
+    expect((await post("/api/puzzle-result", good, { puzzleId: "p", theme: "fork" })).statusCode).toBe(400); // neither outcome nor solved
+    const chessSection = (await app.inject({ method: "GET", url: `/api/brief/${localDate()}`, headers: good })).json().sections.find((x: { id: string }) => x.id === "chess");
+    expect(chessSection.puzzles).toHaveLength(3);
+    expect(chessSection.puzzles.map((p: { id: string; result?: string }) => [p.id, p.result])).toEqual([["sample-fork", "helped"], ["sample-pin", undefined], ["sample-mateIn2", undefined]]);
+  });
+});
