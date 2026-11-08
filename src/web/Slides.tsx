@@ -1,7 +1,8 @@
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import type { Item, Section } from "../shared/schema";
 import { api } from "./api";
-import { SECTION_ICON, TAG_ICON, TAG_MEANING, ago, host, time } from "./format";
+import { addDays, localDate } from "../shared/dates";
+import { SECTION_ICON, TAG_ICON, TAG_MEANING, ago, host, repoOf, time } from "./format";
 import { NoteEdit, NotesCapture } from "./Notes";
 import { chunkNotes } from "./notesPaging";
 
@@ -44,9 +45,18 @@ export const NoteSavedCtx = createContext<() => void>(() => undefined);
 
 const Warnings = ({ s }: { s: Section }) => <>{s.warnings.map((w) => <p key={w} className="muted small">⚠ {w}</p>)}</>;
 
+/** Reports a news/release item as seen once it has been on screen for a moment (flicking past does not count). */
+function SeenMarker({ id }: { id: string }) {
+  useEffect(() => {
+    const t = setTimeout(() => { void api("/api/seen", { ids: [id] }).catch(() => undefined); }, 1500);
+    return () => clearTimeout(t);
+  }, [id]);
+  return null;
+}
+
 function Thumbs({ item }: { item: Item }) {
   const [done, setDone] = useState("");
-  const send = (kind: "up" | "down") => api("/api/feedback", { kind, target: "source", value: item.url ?? "" }).then(() => setDone(kind === "up" ? "★ saved" : "blocked")).catch(() => setDone("failed"));
+  const send = (kind: "up" | "down") => api("/api/feedback", { kind, target: "source", value: (host(item.url) === "news.google.com" && item.source ? item.source : item.url) ?? "" }).then(() => setDone(kind === "up" ? "★ saved" : "blocked")).catch(() => setDone("failed"));
   if (!item.url) return null;
   return done ? <span className="muted">{done}</span> : (
     <span className="thumbs">
@@ -167,23 +177,34 @@ export function SlideView({ slide, noteUi, setNote }: { slide: Slide; noteUi: Re
     );
   }
   if (!item) return null;
+  const repo = repoOf(item.url);
+  const heading = repo && !item.title.includes(repo) ? `${repo} ${item.title}` : item.title; // "vitejs/vite v8.3.6", not just "v8.3.6"
+  const source = repo ? `github.com/${repo}` : item.source ?? host(item.url);
+  const fresh = !!item.date && item.date.slice(0, 10) >= localDate(addDays(new Date(), -1));
+  const [lead = "", ...summaryBullets] = (item.summary ?? "").split(" • ");
+  const bullets = item.points?.length ? item.points : summaryBullets.map((text) => ({ text, url: undefined }));
+  const openLabel = repo ? "View release on GitHub ↗" : sourced && (item.source ?? host(item.url)) ? `Read on ${host(item.url) === "news.google.com" && item.source ? item.source : host(item.url)} ↗` : "Open ↗";
   return (
     <div className="slide">
+      {sourced && <SeenMarker id={item.id} />}
       <div className="big-ico" aria-hidden="true">{(item.tag && TAG_ICON[item.tag]) || SECTION_ICON[s.id]}</div>
       <p className="kicker">
         {item.start && <span className="time">{time(item.start)}</span>}
         {item.tag && item.tag !== "note" && <span className={`tag tag-${item.tag}`}>{item.tag}</span>}
         {item.unverified && <span className="tag">unverified</span>}
+        {sourced && item.seen && <span className="tag tag-seen" title="You have already looked at this">seen</span>}
+        {sourced && !item.seen && fresh && <span className="tag tag-new" title="Fresh and not seen before">new</span>}
       </p>
-      <h3 className="slide-title">{item.title}</h3>
+      <h3 className="slide-title">{heading}</h3>
       {item.tag && TAG_MEANING[item.tag] && <p className={`meaning meaning-${item.tag}`}>{TAG_MEANING[item.tag]}</p>}
-      {item.summary ? <p className="slide-sum">{item.summary}</p> : sourced && <p className="muted">No details in the feed — open the source for the full story.</p>}
+      {item.summary ? <><p className="slide-sum">{lead}</p>{bullets.length > 0 && <ul className="slide-bullets">{bullets.map((b, i) => <li key={i} className={b.text.startsWith("▸") ? "bullet-head" : ""}>{b.text}{b.url && <> <a className="point-link" href={b.url} target="_blank" rel="noreferrer noopener" title="Open this change">↗</a></>}</li>)}</ul>}</> : sourced && <p className="muted">No details in the feed — open the source for the full story.</p>}
       <dl className="facts">
-        {(item.source ?? host(item.url)) && <><dt>Source</dt><dd>{item.source ?? host(item.url)}</dd></>}
+        {source && <><dt>Source</dt><dd>{source}</dd></>}
         {item.date && <><dt>{s.id === "notes" ? "Written" : "Published"}</dt><dd>{item.date}{ago(item.date) ? ` (${ago(item.date)})` : ""}</dd></>}
       </dl>
-      {item.url && <p><a className="bigbtn" href={item.url} target="_blank" rel="noreferrer noopener">Open ↗</a></p>}
+      {item.url && <p><a className="bigbtn" href={item.url} target="_blank" rel="noreferrer noopener">{openLabel}</a></p>}
       {sourced && <p><Thumbs item={item} /></p>}
+      {sourced && s.warnings.length > 0 && <div className="flag" role="alert" data-testid="source-flag">🚩 <b>Source problem</b>{s.warnings.map((w) => <span key={w}>{w}</span>)}</div>}
     </div>
   );
 }

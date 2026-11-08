@@ -15,6 +15,15 @@ test("intro screen: brand, clock, core and Microsoft hint", async ({ page }) => 
   await expect(page.locator(".pip")).toHaveCount(6); // warm-up, meetings, email, work, world, today
 });
 
+test("the progress pips are centred on the page, whatever is in the header corners", async ({ page }) => {
+  for (const width of [1910, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/");
+    const box = (await page.locator(".pips").boundingBox())!;
+    expect(Math.abs(box.x + box.width / 2 - width / 2)).toBeLessThan(2);
+  }
+});
+
 test("walks every section in the fixed order, one slide at a time", async ({ page }) => {
   await startWalk(page);
   const counters: string[] = [];
@@ -61,7 +70,7 @@ test("meeting, work and world slides show their details", async ({ page }) => {
   await page.getByTitle("Job-critical").click();
   await expect(page.getByRole("heading", { name: /Sample release/ })).toBeVisible();
   await expect(page.locator(".tag-release")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Open ↗" })).toHaveAttribute("href", "https://example.com/release");
+  await expect(page.getByRole("link", { name: "Read on example.com ↗" })).toHaveAttribute("href", "https://example.com/release");
   await expect(page.locator(".facts")).toContainText("example.com");
   await page.getByTitle("World news").click();
   await expect(page.getByRole("heading", { name: "World story one" })).toBeVisible();

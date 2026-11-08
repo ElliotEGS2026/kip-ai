@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { work } from "../src/generator/collectors/work.js";
+import { markSeen } from "../src/shared/seen.js";
 
 const now = new Date("2026-11-08T12:00:00Z");
 let dir: string;
@@ -47,14 +48,26 @@ describe("work section", () => {
   });
   it("keeps release-note bullet points readable", async () => {
     const { excerpt } = await import("../src/generator/feed.js");
-    expect(excerpt("<h2>What's changed</h2><ul><li>Added a thing</li><li>Fixed a bug</li></ul>")).toBe("What's changed • Added a thing • Fixed a bug");
+    expect(excerpt("<h2>What's changed</h2><ul><li>Added a thing</li><li>Fixed a bug</li></ul>")).toBe("▸ What's changed • Added a thing • Fixed a bug");
+    // commit/PR reference links are noise in a one-screen summary
+    expect(excerpt("<ul><li>fix: await close calls ( <a>#23935</a> ) ( <a>175bbeb</a> )</li></ul>")).toBe("• fix: await close calls");
+  });
+  it("puts fresh unread items first, and items you have already seen last", async () => {
+    mock("19.0.0");
+    const fresh = "https://github.com/o/r/releases/tag/v2.0.0"; // published 2026-11-07 (yesterday)
+    const order = async () => (await work({ today: "2026-11-08", now })).items?.map((i) => i.id);
+    expect((await order())?.[0]).toBe(fresh); // fresh + unread beats the older advisory
+    markSeen([fresh], "2026-11-08");
+    expect((await order())).toEqual(["GHSA-new-high", fresh]); // now the unread advisory leads
   });
   it("detects a major bump only after the baseline run", async () => {
     mock("19.0.0");
     await work({ today: "2026-11-08", now }); // baseline
     mock("20.1.0");
     const r = await work({ today: "2026-11-09", now });
-    expect(r.items?.find((i) => i.title.includes("19.0.0 → 20.1.0"))).toBeTruthy();
+    const bump = r.items?.find((i) => i.title.includes("19.0.0 → 20.1.0"));
+    expect(bump).toBeTruthy();
+    expect(bump?.url).toBe("https://www.npmjs.com/package/react/v/20.1.0"); // the exact version page, not the package front page
   });
   it("a failing sub-source becomes a warning, not a failure", async () => {
     mock("19.0.0", false);

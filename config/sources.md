@@ -16,6 +16,7 @@ Wide-spread changes (new major versions, breaking changes, ecosystem-wide securi
 At least 2 of the 10 world stories come from here (budgets, tax, interest rates, inflation, the economy).
 - https://www.theguardian.com/business/economics/rss
 - https://feeds.bbci.co.uk/news/business/economy/rss.xml
+- https://news.google.com/rss/search?q=site:moneysavingexpert.com+-site:forums.moneysavingexpert.com+when:2d&hl=en-GB&gl=GB&ceid=GB:en
 
 ## Politics & finance news
 Together with the section above, at least 4 of the 10 world stories come from here.

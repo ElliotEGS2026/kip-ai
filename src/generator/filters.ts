@@ -1,5 +1,5 @@
 import { readSections, hostOf } from "../shared/mdConfig.js";
-import type { FeedEntry } from "./feed.js";
+import { entryHost, type FeedEntry } from "./feed.js";
 
 export function loadPrefs() {
   const block = readSections("blocklist.md");
@@ -23,10 +23,10 @@ const domainMatch = (host: string, d: string): boolean => host === d || host.end
 /** Drops blocked outlets/topics, ranks favourites first, then newest. */
 export function applyPrefs(entries: FeedEntry[], p: Prefs): FeedEntry[] {
   const kept = entries.filter((e) => {
-    const h = hostOf(e.url);
+    const h = entryHost(e);
     return !p.blockedOutlets.some((d) => domainMatch(h, d)) && !p.blockedTopics.some((t) => e.title.toLowerCase().includes(t));
   });
   const score = (e: FeedEntry): number =>
-    (p.favOutlets.some((d) => domainMatch(hostOf(e.url), d)) ? 2 : 0) + (p.favTopics.some((t) => e.title.toLowerCase().includes(t)) ? 1 : 0);
+    (p.favOutlets.some((d) => domainMatch(entryHost(e), d)) ? 2 : 0) + (p.favTopics.some((t) => e.title.toLowerCase().includes(t)) ? 1 : 0);
   return kept.sort((a, b) => score(b) - score(a) || b.ms - a.ms);
 }

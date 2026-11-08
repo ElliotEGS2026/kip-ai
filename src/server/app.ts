@@ -1,10 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import Fastify, { type FastifyInstance } from "fastify";
-import { BriefingSchema, FeedbackInput, NoteEditInput, NoteInput, PuzzleResultInput, dateStr } from "../shared/schema.js";
+import { BriefingSchema, FeedbackInput, NoteEditInput, NoteInput, PuzzleResultInput, SeenInput, dateStr } from "../shared/schema.js";
 import { addBullet, hostOf } from "../shared/mdConfig.js";
 import { dataDir, fixturePath, webDist } from "../shared/paths.js";
 import { localDate } from "../shared/dates.js";
+import { markSeen, readSeen } from "../shared/seen.js";
 import { readChess, recordResult } from "../shared/chessState.js";
 import { NoteStateInput, editNote, readNoteText, setNoteState } from "../shared/notes.js";
 import { refreshNotes } from "../generator/refresh.js";
@@ -17,6 +18,13 @@ const MIME: Record<string, string> = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css",
   ".svg": "image/svg+xml", ".png": "image/png", ".ico": "image/x-icon", ".json": "application/json", ".map": "application/json",
 };
+
+/** Marks news/release items you have already looked at, so the page can show it. Order is NOT changed here (the slide you are on must not jump). */
+function flagSeen<T extends { sections: { id: string; items: { id: string; seen?: boolean }[] }[] }>(b: T): T {
+  const seen = readSeen();
+  for (const s of b.sections) if (s.id === "work" || s.id === "world") for (const i of s.items) if (seen[i.id]) i.seen = true;
+  return b;
+}
 
 export function buildApp(opts: AppOptions): FastifyInstance {
   const app = Fastify({ logger: false });
@@ -35,10 +43,10 @@ export function buildApp(opts: AppOptions): FastifyInstance {
       const parsed = BriefingSchema.safeParse(JSON.parse(fs.readFileSync(file, "utf8")));
       if (!parsed.success) return reply.code(500).send({ error: "stored briefing failed validation" });
       // Today's notes may have been written after the morning generation: rebuild the note-dependent sections.
-      return date.data === localDate() ? refreshNotes(parsed.data) : parsed.data;
+      return flagSeen(date.data === localDate() ? await refreshNotes(parsed.data) : parsed.data);
     }
     if (date.data === localDate()) {
-      return { ...JSON.parse(fs.readFileSync(fixturePath(), "utf8")), date: date.data, sample: true };
+      return flagSeen({ ...JSON.parse(fs.readFileSync(fixturePath(), "utf8")), date: date.data, sample: true });
     }
     return reply.code(404).send({ error: "no briefing for that date" });
   });
@@ -52,6 +60,14 @@ export function buildApp(opts: AppOptions): FastifyInstance {
       target === "source" ? (kind === "down" ? ["blocklist.md", "Outlets"] : ["sources.md", "Favourites"])
                           : (kind === "down" ? ["blocklist.md", "Topics"] : ["sources.md", "Favourite topics"]);
     return { added: addBullet(file, section, v), file, section, value: v };
+  });
+
+  /** The page reports news/release items you have looked at; tomorrow's brief ranks unread fresh items first. */
+  app.post("/api/seen", async (req, reply) => {
+    const body = SeenInput.safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ error: "invalid input" });
+    markSeen(body.data.ids, localDate());
+    return { ok: true };
   });
 
   app.post("/api/puzzle-result", async (req, reply) => {
