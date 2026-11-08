@@ -2,5 +2,6 @@
 Outlets are domains (e.g. example.com). Topics are keywords matched against titles.
 
 ## Outlets
+- bleepingcomputer.com
 
 ## Topics
