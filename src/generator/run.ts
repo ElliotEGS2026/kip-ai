@@ -11,9 +11,11 @@ import { email } from "./collectors/email.js";
 import { work } from "./collectors/work.js";
 import { world } from "./collectors/world.js";
 import { chess } from "./collectors/chess.js";
-import { wakeup } from "./collectors/wakeup.js";
+import { buildToday } from "./collectors/today.js";
 
-export const COLLECTORS: Record<SectionId, Collector> = { notes, meetings, email, work, world, chess, wakeup };
+/** Independent collectors. "today" is derived from their results afterwards (see buildToday). */
+export type SourceId = Exclude<SectionId, "today">;
+export const COLLECTORS: Record<SourceId, Collector> = { chess, notes, meetings, email, work, world };
 const RETENTION_DAYS = 14;
 const TIMEOUT_MS = 60000;
 
@@ -60,7 +62,10 @@ export function toMarkdown(b: Briefing): string {
 
 export async function generate(now: Date = new Date(), collectors = COLLECTORS, check = verifyLinks): Promise<Briefing> {
   const ctx: Ctx = { today: localDate(now), now };
-  const sections = await Promise.all(SECTION_IDS.map((id) => runSection(id, collectors[id], ctx)));
+  const sourceIds = SECTION_IDS.filter((id): id is SourceId => id !== "today");
+  const base = await Promise.all(sourceIds.map((id) => runSection(id, collectors[id], ctx)));
+  const today = await runSection("today", async () => buildToday(base), ctx);
+  const sections = SECTION_IDS.map((id) => (id === "today" ? today : base.find((s) => s.id === id)!));
   await check(sections);
   const briefing = BriefingSchema.parse({ date: ctx.today, generatedAt: now.toISOString(), sections });
   const dir = path.join(dataDir(), "briefings");

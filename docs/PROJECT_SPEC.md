@@ -4,13 +4,14 @@
 Local app run each morning (~9am). Generates a daily briefing, shows it on `http://127.0.0.1:47821` (React), with a button to shut the server down. Portable: clone from GitHub, no hard-coded paths, secrets only in `.env`/`data/`. Owner is a forward deployed engineer (Windows, work Microsoft 365 later). Text only, no voice.
 
 ## Sections (order fixed)
-1. Yesterday's notes + open loops (`data/notes/YYYY-MM-DD.md`, written via the in-app note box; `- [ ]` = open loop, `- [x]` closes it)
-2. Today's meetings (Microsoft Graph if connected, else ICS link) + rule-based one-line prep
-3. Email: unread/flagged/high-importance mail with no later sent reply (Microsoft only)
-4. Job-critical: GitHub release feeds + npm major bumps + high/critical OSV advisories for `config/stack.md`, plus extra feeds from `config/sources.md`
-5. World news from RSS feeds, minus `config/blocklist.md`, favourites first
-6. Brain teaser: chess theme weighted to weak themes → Lichess `/training/<theme>` link; solved/missed buttons update `data/chess-weaknesses.json`
-7. 15-minute wake-up: 3 date-seeded picks from `config/wakeup.md`
+1. Brain teaser: chess theme weighted to weak themes → Lichess `/training/<theme>` link; solved/missed buttons update `data/chess-weaknesses.json`
+2. Yesterday's notes + open loops (`data/notes/YYYY-MM-DD.md`, written via the in-app note box or voice dictation; `- [ ]` = open loop, `- [x]` closes it)
+3. Today's meetings (Microsoft Graph if connected, else ICS link) + rule-based one-line prep
+4. Email: unread/flagged/high-importance mail with no later sent reply (Microsoft only)
+5. Job-critical: GitHub release feeds + npm major bumps + high/critical OSV advisories for `config/stack.md`, plus extra feeds from `config/sources.md`
+6. World news from RSS feeds, minus `config/blocklist.md`, favourites first
+7. Today's plan: derived after the others run (never fetches): today's meetings, open-loop tasks, emails awaiting reply, a "review job-critical" nudge. Replaces the old 15-minute wake-up block.
+UI (V2): sections 1+2 share the first page as tabs; then meetings, email, job-critical, world, plan; then sections spread out as clickable orbs.
 
 ## Architecture
 `generate` (collectors in parallel, per-section timeout/isolation, zod validation, link check) → `data/briefings/DATE.json|md` → Fastify serves API + built React app. No AI in v1 (needs a paid Claude plan; Claude Code headless is `claude -p --output-format json --json-schema …`, docs: code.claude.com/docs/en/headless).

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const SECTION_IDS = ["notes", "meetings", "email", "work", "world", "chess", "wakeup"] as const;
+export const SECTION_IDS = ["chess", "notes", "meetings", "email", "work", "world", "today"] as const;
 export type SectionId = (typeof SECTION_IDS)[number];
 /** Sections whose items are news/security: every item needs a source link and a date (or `unverified`). */
 export const SOURCED: readonly SectionId[] = ["work", "world"];
@@ -74,11 +74,11 @@ export const PuzzleResultInput = z.object({
 export const NoteInput = z.object({ text: z.string().trim().min(1).max(20000) });
 
 export const SECTION_TITLES: Record<SectionId, string> = {
+  chess: "Brain teaser",
   notes: "Yesterday's notes & open loops",
   meetings: "Today's meetings",
   email: "Email",
   work: "Job-critical",
   world: "World news",
-  chess: "Brain teaser",
-  wakeup: "15-minute wake-up",
+  today: "Today's plan",
 };

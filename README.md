@@ -1,7 +1,7 @@
 # Kip
 
 Personal morning briefing, local only. Red UI at `http://127.0.0.1:47821` with a shutdown button.
-Sections: notes & open loops · meetings · email · job-critical updates · world news · chess brain teaser · wake-up block.
+Sections: chess brain teaser · notes & open loops · meetings · email · job-critical updates · world news · today's plan.
 
 ## Quick start
 Needs Node 22+ (and Git for Windows → Git Bash on Windows).
@@ -15,7 +15,7 @@ With nothing configured you get calendar/email "not set up" cards, live release/
 
 ## Configure
 - `.env` (created from `.env.example`, gitignored): `KIP_PORT`, `KIP_ICS_URL`, `KIP_MS_CLIENT_ID`, `KIP_MS_TENANT`.
-- `config/stack.md` packages/repos to watch · `config/sources.md` feeds + favourites · `config/blocklist.md` · `config/wakeup.md`. Edit by hand or use 👍/👎 in the UI.
+- `config/stack.md` packages/repos to watch · `config/sources.md` feeds + favourites · `config/blocklist.md`. Edit by hand or use 👍/👎 in the UI.
 - Notes: use the "Quick note" box; stored in `data/notes/` (gitignored). `- [ ] task` lines become open loops until a `- [x] task` line exists.
 
 ## Connect Microsoft (calendar + mail, read-only)

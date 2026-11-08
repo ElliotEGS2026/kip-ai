@@ -8,6 +8,7 @@ import { applyPrefs } from "../src/generator/filters.js";
 import { parseIcs, prepLine } from "../src/generator/collectors/ics.js";
 import { stackFromText } from "../src/generator/collectors/work.js";
 import { notes } from "../src/generator/collectors/notes.js";
+import { buildToday } from "../src/generator/collectors/today.js";
 import { THEMES, pickTheme, recordResult, readChess, seeded, weight } from "../src/shared/chessState.js";
 import { localDate, addDays } from "../src/shared/dates.js";
 
@@ -17,7 +18,6 @@ beforeEach(() => {
   process.env.KIP_DATA_DIR = path.join(dir, "data");
   process.env.KIP_CONFIG_DIR = path.join(dir, "config");
   fs.mkdirSync(process.env.KIP_CONFIG_DIR, { recursive: true });
-  fs.writeFileSync(path.join(process.env.KIP_CONFIG_DIR, "wakeup.md"), "- a\n- b\n- c\n- d\n- e\n");
 });
 afterEach(() => { delete process.env.KIP_DATA_DIR; delete process.env.KIP_CONFIG_DIR; });
 
@@ -30,7 +30,8 @@ describe("generation", () => {
     expect(by.work?.message).toBe("source down");
     expect(by.world?.status).toBe("error"); // news item without link/date is rejected, not shown
     expect(by.chess?.status).toBe("ok");
-    expect(by.wakeup?.items).toHaveLength(3);
+    expect(by.today?.status).toBe("ok");
+    expect(by.today?.warnings.join()).toContain("Job-critical failed");
     expect(fs.existsSync(path.join(process.env.KIP_DATA_DIR!, "briefings", `${localDate()}.md`))).toBe(true);
   });
   it("prunes briefings older than 14 days", () => {
@@ -91,9 +92,16 @@ describe("notes + chess", () => {
     expect(fork / N).toBeGreaterThan(2 * uniform); // missed theme: more than double the uniform share
     expect(pin / N).toBeLessThan(uniform / 2); // mastered theme: well under half
   });
-  it("same day gives same wake-up picks", async () => {
-    const a = await COLLECTORS.wakeup({ today: "2026-11-08", now: new Date() });
-    const b = await COLLECTORS.wakeup({ today: "2026-11-08", now: new Date() });
-    expect(a.items).toEqual(b.items);
+  it("today's plan is built only from real items in other sections", () => {
+    const sec = (id: string, items: object[], status = "ok") => ({ id, title: id, status, warnings: [], items }) as never;
+    const r = buildToday([
+      sec("meetings", [{ id: "m", title: "Standup", start: "2026-11-08T09:00:00Z" }]),
+      sec("notes", [{ id: "a", title: "Ship it", tag: "open-loop" }, { id: "b", title: "just a note" }]),
+      sec("email", [{ id: "e", title: "Quote", tag: "awaiting-reply" }, { id: "f", title: "FYI", tag: "unread" }]),
+      sec("work", [{ id: "w", title: "x" }, { id: "w2", title: "y" }]),
+    ]);
+    expect(r.items?.map((i) => i.tag)).toEqual(["meeting", "task", "reply", "review"]);
+    expect(r.items?.[3]?.title).toBe("Review 2 job-critical updates");
+    expect(buildToday([]).items).toEqual([]);
   });
 });

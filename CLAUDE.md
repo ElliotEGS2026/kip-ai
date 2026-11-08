@@ -15,7 +15,7 @@ Kip is a personal, local-only morning briefing app (red theme). Read `docs/PROJE
 - `src/web` React + Vite UI · `config/*.md` hand-editable prefs · `data/` private runtime data (gitignored) · `fixtures/` sample brief
 
 ## Section order (fixed; enforced by schema)
-notes → meetings → email → work (job-critical) → world → chess → wakeup
+chess (brain teaser) → notes → meetings → email → work (job-critical) → world → today (derived plan; built from the others, not a collector)
 
 ## Conventions
 - Strict TypeScript, ESM, no `any` unless parsing external JSON. Validate all API input and the briefing with zod.
