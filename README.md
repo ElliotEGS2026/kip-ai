@@ -28,9 +28,9 @@ Status: written to Microsoft's documented endpoints, not yet tested on a live ac
 ## Windows desktop icon & taskbar
 One-time setup puts a red **K** shortcut on your Desktop that starts Kip with a double-click:
 ```powershell
-powershell -ExecutionPolicy Bypass -File scriptswindowsinstall-shortcut.ps1
+powershell -ExecutionPolicy Bypass -File scripts\windows\install-shortcut.ps1
 ```
-1. It writes the icon (`scripts/windows/kip.ico`) and `DesktopKip.lnk`, which runs `./scripts/start.sh` in Git Bash from this repo folder (needs Git for Windows and Node 22+).
+1. It writes the icon (`scripts/windows/kip.ico`) and `Desktop\Kip.lnk`, which runs `./scripts/start.sh` in Git Bash from this repo folder (needs Git for Windows and Node 22+).
 2. Double-click **Kip**: it installs/generates/builds as needed, starts the server and opens the browser. A Git Bash window stays open while Kip runs; use **Shut down** in the UI or close that window to stop it.
 3. To pin it: right-click the Desktop **Kip** icon → **Pin to taskbar** (Windows 11: Show more options first). Pin from the shortcut, not a running window, so the icon and launch settings are kept.
 4. If you move the repo folder, run the install command again.
