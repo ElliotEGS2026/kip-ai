@@ -25,6 +25,16 @@ With nothing configured you get calendar/email "not set up" cards, live release/
 4. Restart Kip → **Connect Microsoft** → enter the shown code at the Microsoft page. The login is remembered in `data/ms-token.json` (gitignored); **Disconnect** deletes it.
 Status: written to Microsoft's documented endpoints, not yet tested on a live account.
 
+## Windows desktop icon & taskbar
+One-time setup puts a red **K** shortcut on your Desktop that starts Kip with a double-click:
+```powershell
+powershell -ExecutionPolicy Bypass -File scriptswindowsinstall-shortcut.ps1
+```
+1. It writes the icon (`scripts/windows/kip.ico`) and `DesktopKip.lnk`, which runs `./scripts/start.sh` in Git Bash from this repo folder (needs Git for Windows and Node 22+).
+2. Double-click **Kip**: it installs/generates/builds as needed, starts the server and opens the browser. A Git Bash window stays open while Kip runs; use **Shut down** in the UI or close that window to stop it.
+3. To pin it: right-click the Desktop **Kip** icon → **Pin to taskbar** (Windows 11: Show more options first). Pin from the shortcut, not a running window, so the icon and launch settings are kept.
+4. If you move the repo folder, run the install command again.
+
 ## Schedule 9am
 `./scripts/schedule.sh install` (Windows Task Scheduler; macOS/Linux prints a cron line). Sleeping machines miss the run — opening Kip later still generates the day's brief.
 
@@ -50,7 +60,7 @@ Each section is collected on its own, so one failure becomes an error card and n
 | `config/*.md` | Your preferences: `stack.md` (what to watch), `sources.md` (feeds, favourites), `blocklist.md`. Plain markdown, editable by hand or via the 👍/👎 buttons. |
 | `data/` | Private runtime data (briefings, notes, tokens). Gitignored. |
 | `fixtures/briefing.sample.json` | Sample briefing shown until the first real one exists. |
-| `scripts/` | `start.sh` (install, generate, build, open), `stop.sh`, `generate.sh`, `schedule.sh` (daily run), `hooks/pre-commit` (blocks secrets and `data/`). |
+| `scripts/` | `windows/install-shortcut.ps1` (makes the icon and Desktop shortcut), `start.sh` (install, generate, build, open), `stop.sh`, `generate.sh`, `schedule.sh` (daily run), `hooks/pre-commit` (blocks secrets and `data/`). |
 | `tests/` | `*.test.ts` are fast Vitest unit/API tests. **`tests/e2e/`** are Playwright browser tests that drive the real UI against a throwaway server and temp dirs (`npm run test:e2e`). |
 | `docs/` | `PROJECT_SPEC.md` (goals and decisions) and `FUTURE_PLANS_ASSUMPTIONS_ISSUES.md`. |
 | `CLAUDE.md`, `.claude/` | Working notes and helper agent/skill for Claude Code. |
