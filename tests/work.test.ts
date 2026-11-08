@@ -38,6 +38,17 @@ describe("work section", () => {
     expect(r.items?.map((i) => i.id).sort()).toEqual(["GHSA-new-high", "https://github.com/o/r/releases/tag/v2.0.0"]);
     expect(r.items?.every((i) => i.url && i.date)).toBe(true);
   });
+  it("names the project on release items and shows its repo as the source", async () => {
+    mock("19.0.0");
+    const r = await work({ today: "2026-11-08", now });
+    const rel = r.items?.find((i) => i.url?.includes("/releases/tag/v2.0.0"));
+    expect(rel?.title).toBe("o/r v2.0.0");
+    expect(rel?.source).toBe("github.com/o/r");
+  });
+  it("keeps release-note bullet points readable", async () => {
+    const { excerpt } = await import("../src/generator/feed.js");
+    expect(excerpt("<h2>What's changed</h2><ul><li>Added a thing</li><li>Fixed a bug</li></ul>")).toBe("What's changed • Added a thing • Fixed a bug");
+  });
   it("detects a major bump only after the baseline run", async () => {
     mock("19.0.0");
     await work({ today: "2026-11-08", now }); // baseline

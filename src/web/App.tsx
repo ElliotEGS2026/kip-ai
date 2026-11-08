@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Briefing } from "../shared/schema";
 import { pad } from "../shared/dates";
 import { api, today } from "./api";
 import { SECTION_ICON } from "./format";
 import { Clock, Connect, Core } from "./Hud";
 import { Reader } from "./Reader";
-import { NoteSavedCtx, buildSlides, noteState, type NoteUi, type SetNote } from "./Slides";
+import { NoteSavedCtx, buildSlides, noteState, type NoteUi, type SetNote, type Slide } from "./Slides";
 import { Starfield } from "./Starfield";
 
 const GROUP_TITLE: Record<string, string> = { warm: "Warm-up" };
@@ -20,6 +20,7 @@ export function App() {
   /** -1 = intro, 0..slides-1 = walking, slides.length = all done (spread out). */
   const [step, setStep] = useState(-1);
   const [panel, setPanel] = useState<Panel>(null);
+  const live = useRef({ key: "", group: undefined as string | undefined });
   const [noteUi, setNoteUi] = useState<Record<string, NoteUi>>({});
   const setNote: SetNote = (item, patch) => {
     setNoteUi((cur) => ({ ...cur, [item.id]: { ...noteState(item, cur), ...patch } }));
@@ -51,19 +52,22 @@ export function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [walking, panel, slides, step]);
 
-  /** After a note is saved: fetch the fresh brief (the server rebuilds the notes section) and keep the user on the "add a note" page. */
+  /**
+   * After a note is saved or edited: fetch the fresh brief (the server rebuilds the notes section) and keep the user
+   * on the same slide. Slides can shift when notes are added, so the current slide is found again by identity.
+   */
+  const slideKey = (s?: Slide): string => (s ? `${s.group}|${s.kind}|${s.section.id}|${s.item?.id ?? s.n ?? ""}` : "");
   const reloadBrief = async () => {
     try {
       const b = await api<Briefing>(`/api/brief/${today()}`);
-      const fresh = buildSlides(b.sections);
+      const { key, group } = live.current;
+      const all = buildSlides(b.sections);
+      const pool = group ? all.filter((s) => s.group === group) : all;
+      // Same slide if it still exists; otherwise the first slide of the same section (e.g. "nothing to show" became a notes page).
+      let at = pool.findIndex((s) => slideKey(s) === key);
+      if (at < 0) { const [g, , sec] = key.split("|"); at = pool.findIndex((s) => s.group === g && s.section.id === sec); }
       setBrief(b);
-      if (panel?.kind === "group") {
-        const inGroup = fresh.filter((s) => s.group === panel.group);
-        setPanel({ kind: "group", group: panel.group, idx: Math.max(0, inGroup.findIndex((s) => s.kind === "capture")) });
-      } else if (walking) {
-        const at = fresh.findIndex((s) => s.kind === "capture");
-        if (at >= 0) setStep(at);
-      }
+      if (at >= 0) { if (group) setPanel({ kind: "group", group, idx: at }); else setStep(at); }
     } catch { /* keep showing what we have */ }
   };
 
@@ -81,6 +85,7 @@ export function App() {
     setPanel({ kind: "group", group: g, idx: Math.max(0, at) });
   };
   const groupSlides = panel?.kind === "group" ? slides.filter((s) => s.group === panel.group) : [];
+  live.current = { key: slideKey(panel?.kind === "group" ? groupSlides[Math.min(panel.idx, groupSlides.length - 1)] : walking ? slides[step] : undefined), group: panel?.group };
 
   return (
     <NoteSavedCtx.Provider value={() => { void reloadBrief(); }}>

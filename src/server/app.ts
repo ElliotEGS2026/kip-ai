@@ -1,12 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
 import Fastify, { type FastifyInstance } from "fastify";
-import { BriefingSchema, FeedbackInput, NoteInput, PuzzleResultInput, dateStr } from "../shared/schema.js";
+import { BriefingSchema, FeedbackInput, NoteEditInput, NoteInput, PuzzleResultInput, dateStr } from "../shared/schema.js";
 import { addBullet, hostOf } from "../shared/mdConfig.js";
 import { dataDir, fixturePath, webDist } from "../shared/paths.js";
 import { localDate } from "../shared/dates.js";
 import { readChess, recordResult } from "../shared/chessState.js";
-import { NoteStateInput, setNoteState } from "../shared/notes.js";
+import { NoteStateInput, editNote, readNoteText, setNoteState } from "../shared/notes.js";
 import { refreshNotes } from "../generator/refresh.js";
 import { guard, type Guard } from "./security.js";
 import { registerMicrosoft } from "./microsoftRoutes.js";
@@ -77,6 +77,18 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     const hhmm = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
     fs.appendFileSync(path.join(dir, `${localDate(now)}.md`), `### ${hhmm}\n${body.data.text}\n\n`);
     return { ok: true };
+  });
+
+  /** Read / replace one saved note's text (the notes page's Edit button). */
+  app.get("/api/notes/:id", async (req, reply) => {
+    const text = /^[a-f0-9]{12}$/.test((req.params as { id: string }).id) ? readNoteText((req.params as { id: string }).id) : null;
+    return text === null ? reply.code(404).send({ error: "no such note" }) : { text };
+  });
+  app.post("/api/notes/edit", async (req, reply) => {
+    const body = NoteEditInput.safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ error: "invalid input" });
+    const id = editNote(body.data.id, body.data.text);
+    return id ? { id } : reply.code(404).send({ error: "no such note" });
   });
 
   /** Per-note choices: completed (off by default) and priority. Stored in data/note-state.json. */
