@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Blocks committing secrets or private data. Enabled by start.sh (git config core.hooksPath scripts/hooks).
+bad=$(git diff --cached --name-only | grep -E '^(\.env|data/[^.]|.*ms-token.*)' || true)
+if [ -n "$bad" ]; then echo "Blocked: private files staged:"; echo "$bad"; exit 1; fi
+hits=$(git diff --cached -U0 | grep -E '^\+' | grep -v '^+++' | grep -E 'sk-ant-[A-Za-z0-9_-]{10,}|ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY|"refresh_token" *: *"[^"]{20,}' || true)
+if [ -n "$hits" ]; then echo "Blocked: possible secret in staged changes (lines hidden)."; exit 1; fi

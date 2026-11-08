@@ -17,8 +17,12 @@ export const COLLECTORS: Record<SectionId, Collector> = { notes, meetings, email
 const RETENTION_DAYS = 14;
 const TIMEOUT_MS = 60000;
 
-const withTimeout = <T>(p: Promise<T>, ms: number): Promise<T> =>
-  Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error(`timed out after ${ms / 1000}s`)), ms))]);
+const withTimeout = async <T>(p: Promise<T>, ms: number): Promise<T> => {
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    return await Promise.race([p, new Promise<never>((_, rej) => { timer = setTimeout(() => rej(new Error(`timed out after ${ms / 1000}s`)), ms); })]);
+  } finally { clearTimeout(timer); } // a dangling timer would keep the process alive for the full timeout
+};
 
 /** Each section runs alone: a failure becomes that section's error card and never affects the others. */
 export async function runSection(id: SectionId, collector: Collector, ctx: Ctx): Promise<Section> {
