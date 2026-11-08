@@ -163,6 +163,24 @@ test.describe("with two saved notes", () => {
     expect(fs.readFileSync(file, "utf8")).toBe(before);
   });
 
+  test("if the server cannot open or save the note, Edit shows an error and keeps your text", async ({ page }) => {
+    await toNotes(page);
+    const beta = items(page).first();
+    // 1) opening fails (e.g. an older Kip server that does not know the Edit endpoint)
+    await page.route("**/api/notes/*", (r) => (r.request().method() === "GET" ? r.fulfill({ status: 200, contentType: "text/html", body: "<html></html>" }) : r.continue()));
+    await beta.getByTestId("note-edit").click();
+    await expect(page.getByTestId("note-edit-error")).toContainText("Could not open this note");
+    await expect(page.getByTestId("note-edit-box")).toHaveCount(0);
+    await page.unroute("**/api/notes/*");
+    // 2) saving fails: the box stays open with the typed text
+    await page.route("**/api/notes/edit", (r) => r.fulfill({ status: 500, contentType: "application/json", body: "{}" }));
+    await beta.getByTestId("note-edit").click();
+    await page.getByTestId("note-edit-box").fill("Typed but not saved");
+    await beta.getByTestId("note-edit").click();
+    await expect(page.getByTestId("note-edit-error")).toContainText("Could not save the edit");
+    await expect(page.getByTestId("note-edit-box")).toHaveValue("Typed but not saved");
+  });
+
   test("keyboard arrow does not skip past the notes page", async ({ page }) => {
     await toNotes(page);
     await page.keyboard.press("ArrowRight");

@@ -44,21 +44,31 @@ export function NotesCapture({ onSaved }: { onSaved?: () => void }) {
 /** Edit button for one saved note: opens its text in a box; "Done" (or leaving the page) saves the change. */
 export function NoteEdit({ item, onSaved }: { item: Item; onSaved: () => void }) {
   const [draft, setDraft] = useState<string | null>(null); // null = not editing
+  const [err, setErr] = useState("");
   const original = useRef("");
   const latest = useRef({ draft, onSaved });
   latest.current = { draft, onSaved };
-  const save = (): Promise<unknown> => {
+  /** Saves if the text changed. Resolves false when saving failed, so the box stays open and nothing is lost. */
+  const save = (): Promise<boolean> => {
     const d = latest.current.draft;
-    if (d === null || !d.trim() || d.trim() === original.current.trim()) return Promise.resolve();
-    return api("/api/notes/edit", { id: item.id, text: d }).then(() => latest.current.onSaved()).catch(() => undefined);
+    if (d === null || !d.trim() || d.trim() === original.current.trim()) return Promise.resolve(true);
+    return api("/api/notes/edit", { id: item.id, text: d })
+      .then(() => { latest.current.onSaved(); return true; })
+      .catch((e: Error) => { setErr(`Could not save the edit (${e.message}). If Kip was updated, restart it and try again.`); return false; });
   };
   useEffect(() => () => { void save(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const open = () => api<{ text: string }>(`/api/notes/${item.id}`).then((r) => { original.current = r.text; setDraft(r.text); }).catch(() => undefined);
-  const done = () => { void save().then(() => setDraft(null)); };
+  const open = () => {
+    setErr("");
+    return api<{ text?: string }>(`/api/notes/${item.id}`)
+      .then((r) => { if (typeof r.text !== "string") throw new Error("unexpected reply"); original.current = r.text; setDraft(r.text); })
+      .catch((e: Error) => setErr(`Could not open this note (${e.message}). If Kip was updated, restart it and try again.`));
+  };
+  const done = () => { void save().then((ok) => { if (ok) setDraft(null); }); };
   return (
     <>
       <button className="ghost" data-testid="note-edit" onClick={draft === null ? () => { void open(); } : done}>{draft === null ? "✎ Edit" : "✓ Done"}</button>
+      {err && <p className="err small note-edit" data-testid="note-edit-error">{err}</p>}
       {draft !== null && (
         <div className="note-edit">
           <textarea data-testid="note-edit-box" rows={4} value={draft} onChange={(e) => setDraft(e.target.value)} aria-label="Edit note" />
