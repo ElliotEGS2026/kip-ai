@@ -6,6 +6,7 @@ import { SECTION_ICON } from "./format";
 import { Clock, Connect, Core } from "./Hud";
 import { Reader } from "./Reader";
 import { NoteSavedCtx, buildSlides, noteState, type NoteUi, type SetNote, type Slide } from "./Slides";
+import { Kips } from "./Kips";
 import { Starfield } from "./Starfield";
 
 const GROUP_TITLE: Record<string, string> = { warm: "Warm-up" };
@@ -91,6 +92,7 @@ export function App() {
     <NoteSavedCtx.Provider value={() => { void reloadBrief(); }}>
     <div className={`stage ${walking ? "walking" : ""} ${done ? "done" : ""}`}>
       <Starfield />
+      <Kips />
       <header className="hud">
         <div className="brand">Kip<span>.</span><small>MORNING BRIEFING</small></div>
         <nav className="pips" aria-label="Progress">

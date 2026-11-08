@@ -30,7 +30,7 @@ One-time setup puts a red **K** shortcut on your Desktop that starts Kip with a 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\windows\install-shortcut.ps1
 ```
-1. It writes the icon (`scripts/windows/kip.ico`) and `Desktop\Kip.lnk`, which runs `./scripts/start.sh` in Git Bash from this repo folder (needs Git for Windows and Node 22+).
+1. It builds the icon from the Kip picture (`scripts/windows/kip.ico`) and `Desktop\Kip.lnk`, which runs `./scripts/start.sh` in Git Bash from this repo folder (needs Git for Windows and Node 22+).
 2. Double-click **Kip**: it installs/generates/builds as needed, starts the server and opens the browser. A Git Bash window stays open while Kip runs; use **Shut down** in the UI or close that window to stop it.
 3. To pin it: right-click the Desktop **Kip** icon → **Pin to taskbar** (Windows 11: Show more options first). Pin from the shortcut, not a running window, so the icon and launch settings are kept.
 4. If you move the repo folder, run the install command again.
@@ -56,11 +56,11 @@ Each section is collected on its own, so one failure becomes an error card and n
 | `src/generator/collectors/` | One file per section: `chess`, `notes`, `meetings` (+`ics`), `email`, `work`, `world`, and **`today.ts`**, which derives the plan from the others. To add a section use these as a pattern. |
 | `src/connectors/microsoft.ts` | Read-only Microsoft Graph sign-in (device code) for calendar and mail. |
 | `src/server/` | Fastify API. **`security.ts`** is the guard (localhost only, per-run token, Origin and Host checks) and must not be weakened. `app.ts` holds the routes, `index.ts` starts the server, `microsoftRoutes.ts` the sign-in routes. |
-| `src/web/` | The React UI. `App.tsx` is the page shell and state; `Slides.tsx` builds and draws each slide; `Reader.tsx` is the Back/Next panel and the "uncompleted notes" popup; `Hud.tsx` is the header widgets and the central "core" ring; `Notes.tsx` + `Voice.ts` capture typed or spoken notes; `format.ts` holds display helpers/icons; `api.ts` attaches the security token to requests; `styles.css` is the red theme. |
+| `src/web/` | The React UI. `App.tsx` is the page shell and state; `Slides.tsx` builds and draws each slide; `Reader.tsx` is the Back/Next panel and the "uncompleted notes" popup; `Hud.tsx` is the header widgets and the central "core" ring; `Kips.tsx` makes three Kip plushies float on the background layer of every screen (they bounce off the screen edges, the interface boxes and each other, and hold still with reduced-motion; the picture is `public/kip.png`); `Notes.tsx` + `Voice.ts` capture typed or spoken notes; `format.ts` holds display helpers/icons; `api.ts` attaches the security token to requests; `styles.css` is the red theme. |
 | `config/*.md` | Your preferences: `stack.md` (what to watch), `sources.md` (feeds, favourites), `blocklist.md`. Plain markdown, editable by hand or via the 👍/👎 buttons. |
 | `data/` | Private runtime data (briefings, notes, tokens). Gitignored. |
 | `fixtures/briefing.sample.json` | Sample briefing shown until the first real one exists. |
-| `scripts/` | `windows/install-shortcut.ps1` (makes the icon and Desktop shortcut), `start.sh` (install, generate, build, open), `stop.sh`, `generate.sh`, `schedule.sh` (daily run), `hooks/pre-commit` (blocks secrets and `data/`). |
+| `scripts/` | `windows/install-shortcut.ps1` (makes the Kip icon and Desktop shortcut), `windows/cutout.ps1` (removes the black background from a picture of Kip), `start.sh` (install, generate, build, open), `stop.sh`, `generate.sh`, `schedule.sh` (daily run), `hooks/pre-commit` (blocks secrets and `data/`). |
 | `tests/` | `*.test.ts` are fast Vitest unit/API tests. **`tests/e2e/`** are Playwright browser tests that drive the real UI against a throwaway server and temp dirs (`npm run test:e2e`). |
 | `docs/` | `PROJECT_SPEC.md` (goals and decisions) and `FUTURE_PLANS_ASSUMPTIONS_ISSUES.md`. |
 | `CLAUDE.md`, `.claude/` | Working notes and helper agent/skill for Claude Code. |
@@ -114,6 +114,7 @@ Shared helpers: `net.ts` (`fetchT` = fetch with a timeout and clear errors), `fe
 | `POST /api/notes` | Appends a note (`### HH:MM` block) to `data/notes/DATE.md`. Used by auto-save when you leave "Add a new note". |
 | `GET /api/notes/:id`, `POST /api/notes/edit` | Read and replace one saved note's text (the ✎ Edit button). The note's id is a hash of its date, time and text, so an edit gives it a new id and the server moves your Completed/Priority choice across. |
 | `POST /api/notes/state` | Saves Completed / Priority / Deleted for one note in `data/note-state.json`. |
+| `POST /api/seen` | The page reports news/release items you stayed on for a moment. Stored in `data/seen.json`; the brief then flags them `seen`, and the next generation ranks fresh (today/yesterday) unread items first and already-seen ones last. |
 | `POST /api/feedback` | 👍/👎 on a source: adds the domain to `config/sources.md` or `config/blocklist.md` via `mdConfig.ts`. |
 | `POST /api/puzzle-result`, `GET /api/puzzle-stats` | Records solved/missed so future themes favour your weak spots. |
 | `GET/POST /api/ms/*` | Microsoft sign-in status, connect (device code) and disconnect. |

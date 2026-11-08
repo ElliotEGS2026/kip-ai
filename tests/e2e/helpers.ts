@@ -13,6 +13,10 @@ export const configDir = (root = MAIN.root): string => path.join(root, "config")
 export interface Seed {
   /** Raw note bodies written to today's notes file, oldest first. */
   notes?: string[];
+  /** Extra items appended to the job-critical section. */
+  workItems?: Record<string, unknown>[];
+  /** Warnings attached to a section (shown as a flagged source problem on its slides). */
+  warnings?: Record<string, string[]>;
   /** Override section status for a section id. */
   statuses?: Record<string, { status: "error" | "not_configured"; message: string }>;
 }
@@ -31,11 +35,12 @@ export function reset(seed: Seed = {}, root = MAIN.root): void {
   };
   const sections = fixture.sections.map((s) => {
     if (s.id === "world") {
-      return { ...s, status: "ok", message: undefined, items: [
+      return { ...s, status: "ok", message: undefined, warnings: seed.warnings?.world ?? [], items: [
         { id: "x1", title: "World story one", summary: "Something happened.", url: "https://news.example.org/one", date: daysAgo(1), source: "news.example.org", tag: "world" },
         { id: "x2", title: "Politics story two", url: "https://news.example.org/two", date: daysAgo(2), tag: "politics" },
       ] };
     }
+    if (s.id === "work" && seed.workItems) return { ...s, items: [...(s.items as unknown[]), ...seed.workItems] };
     const o = seed.statuses?.[s.id];
     return o ? { ...s, ...o, items: [] } : s;
   });

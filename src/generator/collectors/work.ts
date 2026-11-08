@@ -6,6 +6,7 @@ import { fetchT } from "../net.js";
 import { excerpt, fetchFeed } from "../feed.js";
 import { applyPrefs, loadPrefs } from "../filters.js";
 import { balance } from "../balance.js";
+import { readSeen, seenTier } from "../../shared/seen.js";
 import type { Collector } from "../types.js";
 
 export const WORK_TOTAL = 10;
@@ -39,6 +40,7 @@ export function classify(title: string, summary: string | undefined, base: strin
 export const work: Collector = async ({ now, today }) => {
   const stack = stackFromText(fs.readFileSync(path.join(configDir(), "stack.md"), "utf8"));
   const prefs = loadPrefs();
+  const seen = readSeen();
   const items: Item[] = [];
   const warnings: string[] = [];
   /** ids of "general" items: wide-spread platform/industry news (as opposed to your own stack's releases/advisories). */
@@ -62,7 +64,7 @@ export const work: Collector = async ({ now, today }) => {
       if (f.tag !== "release") general.add(e.url);
       // A bare "v2.1.318" says nothing: name the project, and show where it came from.
       const title = f.repo ? `${f.repo} ${e.title}` : e.title;
-      items.push({ id: e.url, title, url: e.url, date: e.date, tag: classify(e.title, e.summary, f.tag === "platform" ? "news" : f.tag), summary: e.summary, source: f.repo ? `github.com/${f.repo}` : new URL(e.url).hostname });
+      items.push({ id: e.url, title, url: e.url, date: e.date, tag: classify(e.title, e.summary, f.tag === "platform" ? "news" : f.tag), summary: e.summary, ...(e.points ? { points: e.points } : {}), source: f.repo ? `github.com/${f.repo}` : new URL(e.url).hostname });
     }
   })));
 
@@ -75,7 +77,7 @@ export const work: Collector = async ({ now, today }) => {
     if (!version) throw new Error("no version in response");
     const prev = state.npm[name];
     if (prev && prev.split(".")[0] !== version.split(".")[0]) {
-      items.push({ id: `npm-${name}-${version}`, title: `${name} major release: ${prev} → ${version}`, url: `https://www.npmjs.com/package/${name}`, date: today, tag: "major", summary: "New major version of a package in your stack. Majors can contain breaking changes - read the changelog before upgrading.", source: "npmjs.com" });
+      items.push({ id: `npm-${name}-${version}`, title: `${name} major release: ${prev} → ${version}`, url: `https://www.npmjs.com/package/${name}/v/${version}`, date: today, tag: "major", summary: "New major version of a package in your stack. Majors can contain breaking changes - read the changelog before upgrading.", source: "npmjs.com" });
     }
     state.npm[name] = version;
   })));
@@ -98,7 +100,9 @@ export const work: Collector = async ({ now, today }) => {
   const rank = (i: Item): number => ({ breaking: 0, security: 0, major: 1, release: 2 } as Record<string, number>)[i.tag ?? ""] ?? 3;
   const seenTitles = new Set<string>();
   for (let i = items.length - 1; i >= 0; i--) { const k = items[i]!.title.toLowerCase(); if (seenTitles.has(k)) items.splice(i, 1); else seenTitles.add(k); }
-  const byPriority = (a: Item, b: Item): number => rank(a) - rank(b) || (b.date ?? "").localeCompare(a.date ?? "");
+  // Fresh (today/yesterday) and unread first, then older unread, then what you have already seen; then importance, then newest.
+  const tier = (i: Item): number => seenTier(i.id, i.date, seen, today);
+  const byPriority = (a: Item, b: Item): number => tier(a) - tier(b) || rank(a) - rank(b) || (b.date ?? "").localeCompare(a.date ?? "");
   const picked = balance(
     [{ items: items.filter((i) => general.has(i.id)), min: MIN_GENERAL }, { items: items.filter((i) => !general.has(i.id)), min: MIN_STACK }],
     WORK_TOTAL,

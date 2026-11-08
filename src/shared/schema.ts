@@ -19,6 +19,8 @@ export const ItemSchema = z.object({
   unverified: z.boolean().optional(),
   priority: z.boolean().optional(), // notes: user flagged as priority
   completed: z.boolean().optional(), // notes: completed today (shown struck out until tomorrow)
+  points: z.array(z.object({ text: z.string(), url: z.string().url().optional() })).max(12).optional(), // release notes: each change, linked to its own pull request / commit
+  seen: z.boolean().optional(), // news/releases: you have already looked at this (set when the brief is served)
 });
 export type Item = z.infer<typeof ItemSchema>;
 
@@ -74,6 +76,7 @@ export const PuzzleResultInput = z.object({
   solved: z.boolean(),
 });
 export const NoteInput = z.object({ text: z.string().trim().min(1).max(20000) });
+export const SeenInput = z.object({ ids: z.array(z.string().min(1).max(500)).min(1).max(50) });
 export const NoteEditInput = NoteInput.extend({ id: z.string().regex(/^[a-f0-9]{12}$/) });
 
 export const SECTION_TITLES: Record<SectionId, string> = {

@@ -1,5 +1,7 @@
 /** Small display helpers and lookup tables shared by the UI components. */
 export const host = (u?: string): string => { try { return new URL(u ?? "").hostname.replace(/^www\./, ""); } catch { return ""; } };
+/** "owner/repo" for a GitHub release link, so a bare "v8.3.6" can say what it is a release of. */
+export const repoOf = (u?: string): string => /^https:\/\/github\.com\/([^/]+\/[^/]+)\/releases/.exec(u ?? "")?.[1] ?? "";
 export const time = (iso?: string): string => (iso ? new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "");
 
 /** "today" / "yesterday" / "N days ago" for a YYYY-MM-DD date. */

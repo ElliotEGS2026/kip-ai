@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { world } from "../src/generator/collectors/world.js";
+import { markSeen } from "../src/shared/seen.js";
 
 const now = new Date("2026-11-08T12:00:00Z");
 let dir: string;
@@ -74,6 +75,36 @@ describe("world news selection", () => {
     const r = await world({ today: "2026-11-08", now });
     expect(r.warnings?.join()).toContain("Only 0 government/economy stories");
     expect(r.items).toHaveLength(10);
+  });
+
+  it("leaves out stories you have already seen when there are plenty of unread ones", async () => {
+    stub({ economy: 6, politics: 6, world: 6 });
+    const before = (await world({ today: "2026-11-08", now })).items!;
+    markSeen(before.slice(0, 4).map((i) => i.id), "2026-11-07");
+    const after = (await world({ today: "2026-11-08", now })).items!;
+    expect(after).toHaveLength(10);
+    for (const i of before.slice(0, 4)) expect(after.map((a) => a.id)).not.toContain(i.id);
+  });
+
+  it("flags a feed that loads but holds no articles, and names a feed that fails", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      if (url.includes("b.test/economy")) return new Response("<rss><channel></channel></rss>"); // blocked / changed format
+      if (url.includes("b.test/politics")) throw new Error("offline");
+      return new Response(rss("g", url.includes("econom") ? "economy" : url.includes("politics") ? "politics" : "world", 5));
+    }));
+    const r = await world({ today: "2026-11-08", now });
+    expect(r.status).toBeUndefined(); // the section still works
+    expect(r.warnings).toContain("b.test/economy/rss: the feed returned no articles (it may have changed or be blocked)");
+    expect(r.warnings?.some((w) => w.startsWith("b.test/politics/rss: "))).toBe(true);
+  });
+
+  it("treats a Google News story as belonging to its real publisher (blocklist and outlet label)", async () => {
+    fs.writeFileSync(path.join(dir, "config", "blocklist.md"), "## Outlets\n- moneysavingexpert.com\n");
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(`<rss><channel><item><title>Cheap deal - Money Saving Expert</title><link>https://news.google.com/rss/articles/x1</link><pubDate>${new Date(now.getTime() - 3600000).toUTCString()}</pubDate><source url="https://www.moneysavingexpert.com">Money Saving Expert</source></item></channel></rss>`)));
+    expect((await world({ today: "2026-11-08", now })).items).toEqual([]); // blocked by its real domain, not "news.google.com"
+    fs.writeFileSync(path.join(dir, "config", "blocklist.md"), "## Outlets\n");
+    const r = await world({ today: "2026-11-08", now });
+    expect(r.items?.[0]).toMatchObject({ title: "Cheap deal", source: "moneysavingexpert.com" });
   });
 
   it("ignores stories older than 48 hours", async () => {

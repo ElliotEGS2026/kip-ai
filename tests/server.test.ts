@@ -141,3 +141,21 @@ describe("editing a saved note", () => {
     expect((await post("/api/notes/edit", noToken, { id: items[0]!.id, text: "x" })).statusCode).toBe(403);
   });
 });
+
+describe("seen items", () => {
+  const seenFile = (): string => path.join(process.env.KIP_DATA_DIR!, "seen.json");
+  it("records seen ids, validates input, and flags them on the next brief (without reordering)", async () => {
+    const day = localDate();
+    const fixture = JSON.parse(fs.readFileSync(path.join(process.cwd(), "fixtures", "briefing.sample.json"), "utf8"));
+    fs.mkdirSync(path.join(process.env.KIP_DATA_DIR!, "briefings"), { recursive: true });
+    fs.writeFileSync(path.join(process.env.KIP_DATA_DIR!, "briefings", `${day}.json`), JSON.stringify({ ...fixture, date: day, sample: undefined }));
+    expect((await post("/api/seen", good, { ids: ["w2"] })).statusCode).toBe(200);
+    expect(JSON.parse(fs.readFileSync(seenFile(), "utf8"))).toEqual({ w2: day });
+    const work = (await app.inject({ method: "GET", url: `/api/brief/${day}`, headers: good })).json().sections.find((x: { id: string }) => x.id === "work");
+    expect(work.items.map((i: { id: string; seen?: boolean }) => [i.id, i.seen ?? false])).toEqual([["w1", false], ["w2", true]]);
+    expect((await post("/api/seen", good, { ids: [] })).statusCode).toBe(400);
+    expect((await post("/api/seen", good, { ids: [123] })).statusCode).toBe(400);
+    const { "x-kip-token": _t, ...noToken } = good;
+    expect((await post("/api/seen", noToken, { ids: ["w1"] })).statusCode).toBe(403);
+  });
+});
