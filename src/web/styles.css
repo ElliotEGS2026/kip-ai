@@ -176,3 +176,7 @@ textarea { width:100%; background:rgba(18,8,9,.9); color:var(--text); border:1px
 /* completed notes + delete */
 .del { background:transparent; border:1px solid #ffb020; color:#ffb020; padding:5px 12px; font-size:.95rem; animation:fade .3s ease; }
 .del:hover:not(:disabled) { background:rgba(255,176,32,.15); box-shadow:0 0 12px rgba(255,176,32,.3); }
+
+.note-list li { flex-wrap:wrap; }
+.note-actions:has(.note-edit) { width:100%; justify-content:flex-start; }
+.note-edit { flex-basis:100%; }

@@ -73,3 +73,32 @@ export function setNoteState(id: string, patch: Pick<NoteState, "completed" | "p
   fs.writeFileSync(stateFile(), JSON.stringify(all, null, 2));
   return next;
 }
+
+/**
+ * Replaces the text of one saved note in place (same date and time). Its id changes with its text,
+ * so any completed/priority choice is carried over to the new id. Returns the new id, or null if the note is gone.
+ */
+export function editNote(id: string, text: string): string | null {
+  const entry = readNoteEntries().find((e) => e.id === id);
+  const clean = text.trim();
+  if (!entry || !clean) return null;
+  const file = path.join(notesDir(), `${entry.date}.md`);
+  // Same split as readNoteEntries: [preamble, time1, body1, time2, body2, ...]
+  const parts = fs.readFileSync(file, "utf8").split(/^### (\d{2}:\d{2})[ \t]*$/m);
+  let out = parts[0] ?? "";
+  for (let i = 1; i < parts.length; i += 2) {
+    const time = parts[i] ?? "", body = parts[i + 1] ?? "";
+    out += `### ${time}${time === entry.time && body.trim() === entry.text ? `\n${clean}\n\n` : body}`;
+  }
+  fs.writeFileSync(file, out);
+  const newId = noteId(entry.date, entry.time, clean);
+  const all = readNoteState();
+  if (newId !== id && all[id]) {
+    all[newId] = all[id];
+    delete all[id];
+    fs.writeFileSync(stateFile(), JSON.stringify(all, null, 2));
+  }
+  return newId;
+}
+
+export const readNoteText = (id: string): string | null => readNoteEntries().find((e) => e.id === id)?.text ?? null;

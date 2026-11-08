@@ -101,3 +101,43 @@ describe("api", () => {
     expect((await post("/api/feedback", good, { kind: "down", target: "source", value: "" })).statusCode).toBe(400);
   });
 });
+
+describe("editing a saved note", () => {
+  const notesFile = (): string => path.join(process.env.KIP_DATA_DIR!, "notes", `${localDate()}.md`);
+  const saved = async () => {
+    await post("/api/notes", good, { text: "first note" });
+    await post("/api/notes", good, { text: "second note" });
+    const day = localDate();
+    const fixture = JSON.parse(fs.readFileSync(path.join(process.cwd(), "fixtures", "briefing.sample.json"), "utf8"));
+    fs.mkdirSync(path.join(process.env.KIP_DATA_DIR!, "briefings"), { recursive: true });
+    fs.writeFileSync(path.join(process.env.KIP_DATA_DIR!, "briefings", `${day}.json`), JSON.stringify({ ...fixture, date: day, sample: undefined }));
+    const b = (await app.inject({ method: "GET", url: `/api/brief/${day}`, headers: good })).json();
+    return b.sections.find((x: { id: string }) => x.id === "notes").items as { id: string; title: string }[];
+  };
+
+  it("returns a note's text and replaces it in place, keeping its priority", async () => {
+    const items = await saved();
+    const first = items.find((i) => i.title === "first note")!;
+    await post("/api/notes/state", good, { id: first.id, priority: true });
+    expect((await app.inject({ method: "GET", url: `/api/notes/${first.id}`, headers: good })).json()).toEqual({ text: "first note" });
+    const res = await post("/api/notes/edit", good, { id: first.id, text: "first note, edited\nwith detail" });
+    expect(res.statusCode).toBe(200);
+    const newId = res.json().id as string;
+    expect(newId).not.toBe(first.id);
+    const file = fs.readFileSync(notesFile(), "utf8");
+    expect(file).toContain("first note, edited\nwith detail");
+    expect(file).toContain("second note"); // the other note is untouched
+    expect(file.match(/^### /gm)).toHaveLength(2);
+    expect(JSON.parse(fs.readFileSync(path.join(process.env.KIP_DATA_DIR!, "note-state.json"), "utf8"))[newId]).toMatchObject({ priority: true });
+  });
+
+  it("rejects unknown notes, bad ids, empty text and missing tokens", async () => {
+    expect((await post("/api/notes/edit", good, { id: "abcdef012345", text: "x" })).statusCode).toBe(404);
+    expect((await post("/api/notes/edit", good, { id: "../../etc", text: "x" })).statusCode).toBe(400);
+    const items = await saved();
+    expect((await post("/api/notes/edit", good, { id: items[0]!.id, text: "   " })).statusCode).toBe(400);
+    expect((await app.inject({ method: "GET", url: "/api/notes/abcdef012345", headers: good })).statusCode).toBe(404);
+    const { "x-kip-token": _t, ...noToken } = good;
+    expect((await post("/api/notes/edit", noToken, { id: items[0]!.id, text: "x" })).statusCode).toBe(403);
+  });
+});

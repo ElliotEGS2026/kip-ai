@@ -1,21 +1,22 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { Item } from "../shared/schema";
 import { api } from "./api";
 import { useDictation } from "./Voice";
 
-interface Saved { date: string; text: string }
-
-/** Note capture (typed or spoken) plus the last few days of saved notes. Notes persist in data/notes/. */
-export function NotesCapture({ showHistory, onSaved }: { showHistory: boolean; onSaved?: () => void }) {
+/**
+ * Note capture (typed or spoken). There is no Save button: whatever you typed is saved automatically
+ * when you leave the page. Saved notes can be changed afterwards with the Edit button on the notes list.
+ */
+export function NotesCapture({ onSaved }: { onSaved?: () => void }) {
   const [text, setText] = useState("");
-  const [msg, setMsg] = useState("");
-  const [history, setHistory] = useState<Saved[]>([]);
-  const load = () => api<Saved[]>("/api/notes").then(setHistory).catch(() => undefined);
-  useEffect(() => { if (showHistory) void load(); }, [showHistory]);
+  const latest = useRef({ text, onSaved });
+  latest.current = { text, onSaved };
   const voice = useDictation((t) => setText((cur) => (cur ? `${cur} ${t}` : t)));
-
-  const save = () => api("/api/notes", { text }).then(() => {
-    setText(""); setMsg("Saved ✓ — it's now on your notes list (use ← Back to see it)."); if (showHistory) void load(); onSaved?.();
-  }).catch((e: Error) => setMsg(`Failed: ${e.message}`));
+  // Runs when the page is left (slide change, close, finish): save the draft if there is one.
+  useEffect(() => () => {
+    const draft = latest.current.text.trim();
+    if (draft) void api("/api/notes", { text: draft }).then(() => latest.current.onSaved?.()).catch(() => undefined);
+  }, []);
 
   return (
     <div className="notes">
@@ -32,19 +33,37 @@ export function NotesCapture({ showHistory, onSaved }: { showHistory: boolean; o
           </button>
         )}
       </div>
-      <div className="row">
-        <button disabled={!text.trim()} onClick={save}>Save note</button>
-        <span className="muted small">{voice.error || msg}</span>
-      </div>
+      <p className="muted small autosave">{voice.error || "Saved automatically when you leave this page. You can edit it later from your notes list."}</p>
       {voice.supported
         ? <p className="muted small">Voice uses your browser's speech service (Chrome/Edge send the audio to Google/Microsoft to transcribe). Typed notes never leave this machine.</p>
         : <p className="muted small">Voice dictation isn't available in this browser - use Chrome or Edge.</p>}
-      {showHistory && history.length > 0 && (
-        <div className="history">
-          <h3>Saved notes</h3>
-          {history.map((h) => <details key={h.date}><summary>{h.date}</summary><pre>{h.text.trim()}</pre></details>)}
+    </div>
+  );
+}
+
+/** Edit button for one saved note: opens its text in a box; "Done" (or leaving the page) saves the change. */
+export function NoteEdit({ item, onSaved }: { item: Item; onSaved: () => void }) {
+  const [draft, setDraft] = useState<string | null>(null); // null = not editing
+  const original = useRef("");
+  const latest = useRef({ draft, onSaved });
+  latest.current = { draft, onSaved };
+  const save = (): Promise<unknown> => {
+    const d = latest.current.draft;
+    if (d === null || !d.trim() || d.trim() === original.current.trim()) return Promise.resolve();
+    return api("/api/notes/edit", { id: item.id, text: d }).then(() => latest.current.onSaved()).catch(() => undefined);
+  };
+  useEffect(() => () => { void save(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const open = () => api<{ text: string }>(`/api/notes/${item.id}`).then((r) => { original.current = r.text; setDraft(r.text); }).catch(() => undefined);
+  const done = () => { void save().then(() => setDraft(null)); };
+  return (
+    <>
+      <button className="ghost" data-testid="note-edit" onClick={draft === null ? () => { void open(); } : done}>{draft === null ? "✎ Edit" : "✓ Done"}</button>
+      {draft !== null && (
+        <div className="note-edit">
+          <textarea data-testid="note-edit-box" rows={4} value={draft} onChange={(e) => setDraft(e.target.value)} aria-label="Edit note" />
         </div>
       )}
-    </div>
+    </>
   );
 }

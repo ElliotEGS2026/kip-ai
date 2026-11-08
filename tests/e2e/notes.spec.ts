@@ -108,6 +108,61 @@ test.describe("with two saved notes", () => {
     await expect(page.getByRole("heading", { name: "Add a new note" })).toBeVisible();
   });
 
+  test("Edit opens the note text, Done saves the change", async ({ page }) => {
+    await toNotes(page);
+    const beta = items(page).first();
+    await beta.getByTestId("note-edit").click();
+    const box = page.getByTestId("note-edit-box");
+    await expect(box).toHaveValue("Beta note");
+    await expect(beta.getByTestId("note-edit")).toHaveText("✓ Done");
+    await box.fill("Beta note edited\nwith more detail");
+    await beta.getByTestId("note-edit").click();
+    await expect(page.getByTestId("note-edit-box")).toHaveCount(0);
+    await expect(page.getByTestId("note-text").first()).toContainText("Beta note edited — with more detail");
+    const file = fs.readFileSync(path.join(dataDir(), "notes", `${TODAY}.md`), "utf8");
+    expect(file).toContain("Beta note edited\nwith more detail");
+    expect(file).not.toMatch(/\nBeta note\n/);
+    expect(file).toContain("Alpha note\nmore detail here"); // other notes untouched
+    await toNotes(page); // persists
+    await expect(items(page)).toHaveCount(2);
+    await expect(page.getByTestId("note-text").first()).toContainText("Beta note edited");
+  });
+
+  test("editing keeps the note's priority and completed choices", async ({ page }) => {
+    await toNotes(page);
+    const beta = items(page).first();
+    await beta.getByTestId("note-priority").click();
+    await expect.poll(() => Object.values(stateFile()).some((s) => s.priority)).toBe(true);
+    await beta.getByTestId("note-edit").click();
+    await page.getByTestId("note-edit-box").fill("Beta renamed");
+    await beta.getByTestId("note-edit").click();
+    await toNotes(page);
+    await expect(page.getByTestId("note-text").first()).toContainText("Beta renamed");
+    await expect(page.getByTestId("note-text").first()).toContainText("⭐");
+  });
+
+  test("an edit in progress is saved when you leave the page", async ({ page }) => {
+    await toNotes(page);
+    await items(page).first().getByTestId("note-edit").click();
+    await page.getByTestId("note-edit-box").fill("Changed without pressing Done");
+    await page.getByRole("button", { name: "✕ Close" }).click();
+    await page.getByTestId("leave-keep").click();
+    await expect.poll(() => fs.readFileSync(path.join(dataDir(), "notes", `${TODAY}.md`), "utf8")).toContain("Changed without pressing Done");
+  });
+
+  test("Done without changes, or with an emptied box, leaves the note as it was", async ({ page }) => {
+    await toNotes(page);
+    const file = path.join(dataDir(), "notes", `${TODAY}.md`);
+    const before = fs.readFileSync(file, "utf8");
+    const beta = items(page).first();
+    await beta.getByTestId("note-edit").click();
+    await beta.getByTestId("note-edit").click();
+    await beta.getByTestId("note-edit").click();
+    await page.getByTestId("note-edit-box").fill("   ");
+    await beta.getByTestId("note-edit").click();
+    expect(fs.readFileSync(file, "utf8")).toBe(before);
+  });
+
   test("keyboard arrow does not skip past the notes page", async ({ page }) => {
     await toNotes(page);
     await page.keyboard.press("ArrowRight");
@@ -118,25 +173,39 @@ test.describe("with two saved notes", () => {
 test.describe("adding notes", () => {
   test.beforeEach(() => reset());
 
-  test("type a note, save it, and see it on the notes page", async ({ page }) => {
-    await startWalk(page);
-    await next(page).click(); // notes status
-    await next(page).click(); // add a note
-    const save = page.getByRole("button", { name: "Save note" });
-    await expect(save).toBeDisabled();
-    const box = page.getByPlaceholder(/Type or speak a note/);
-    await box.fill("   ");
-    await expect(save).toBeDisabled();
-    await box.fill("Call the plumber\nabout the boiler");
-    await expect(save).toBeEnabled();
-    await save.click();
-    await expect(page.getByText(/Saved ✓/)).toBeVisible();
-    await expect(box).toHaveValue("");
-    await expect(page.getByRole("heading", { name: "Add a new note" })).toBeVisible(); // stays on the capture page
-    const file = fs.readFileSync(path.join(dataDir(), "notes", `${TODAY}.md`), "utf8");
-    expect(file).toMatch(/### \d{2}:\d{2}\nCall the plumber\nabout the boiler/);
+  const toCapture = async (page: Page) => { await startWalk(page); await next(page).click(); await next(page).click(); };
+  const notesFile = () => path.join(dataDir(), "notes", `${TODAY}.md`);
+
+  test("there is no Save button; the note is saved automatically when you leave the page", async ({ page }) => {
+    await toCapture(page);
+    await expect(page.getByRole("button", { name: "Save note" })).toHaveCount(0);
+    await expect(page.locator(".autosave")).toContainText("Saved automatically");
+    await page.getByPlaceholder(/Type or speak a note/).fill("Call the plumber\nabout the boiler");
+    expect(fs.existsSync(notesFile())).toBe(false); // not yet: still on the page
+    await next(page).click(); // leave -> saved
+    await expect.poll(() => fs.existsSync(notesFile()) && fs.readFileSync(notesFile(), "utf8")).toMatch(/### \d{2}:\d{2}\nCall the plumber\nabout the boiler/);
+    await expect(page.getByRole("heading", { name: "Sample stand-up" })).toBeVisible(); // and we moved on, not pulled back
+  });
+
+  test("leaving with Back shows the new note in the notes list", async ({ page }) => {
+    await toCapture(page);
+    await page.getByPlaceholder(/Type or speak a note/).fill("Order more coffee");
     await page.getByRole("button", { name: "← Back" }).click();
-    await expect(page.getByTestId("note-text")).toContainText("Call the plumber — about the boiler");
+    await expect(page.getByTestId("note-text")).toContainText("Order more coffee");
+    await expect(page.getByRole("heading", { name: /Your notes/ })).toBeVisible();
+  });
+
+  test("closing the walkthrough also saves the draft; an empty draft saves nothing", async ({ page }) => {
+    await toCapture(page);
+    await page.getByPlaceholder(/Type or speak a note/).fill("Saved on close");
+    await page.getByRole("button", { name: "✕ Close" }).click();
+    await expect.poll(() => fs.existsSync(notesFile()) && fs.readFileSync(notesFile(), "utf8")).toContain("Saved on close");
+    reset();
+    await toCapture(page);
+    await page.getByPlaceholder(/Type or speak a note/).fill("   ");
+    await next(page).click();
+    await expect(page.getByRole("heading", { name: "Sample stand-up" })).toBeVisible();
+    expect(fs.existsSync(notesFile())).toBe(false);
   });
 
   test("the voice control or its fallback message is shown", async ({ page }) => {

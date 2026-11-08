@@ -16,7 +16,7 @@ With nothing configured you get calendar/email "not set up" cards, live release/
 ## Configure
 - `.env` (created from `.env.example`, gitignored): `KIP_PORT`, `KIP_ICS_URL`, `KIP_MS_CLIENT_ID`, `KIP_MS_TENANT`.
 - `config/stack.md` packages/repos to watch · `config/sources.md` feeds + favourites · `config/blocklist.md`. Edit by hand or use 👍/👎 in the UI.
-- Notes: use the "Quick note" box; stored in `data/notes/` (gitignored). `- [ ] task` lines become open loops until a `- [x] task` line exists.
+- Notes: type or speak on the "Add a new note" page (saved automatically when you leave it; change any note later with ✎ Edit); stored in `data/notes/` (gitignored). `- [ ] task` lines become open loops until a `- [x] task` line exists.
 
 ## Connect Microsoft (calendar + mail, read-only)
 1. Entra admin center → App registrations → New (account type per your needs) → Authentication → enable **Allow public client flows**.
@@ -70,3 +70,71 @@ Each section is collected on its own, so one failure becomes an error card and n
 - **Honest sources:** every news item needs a link and date, dead links are marked unverified, nothing is invented.
 - **Notes aren't done until you say so:** they return each day until ticked Completed; `- [ ]` lines become tasks until a matching `- [x]` appears.
 - **Few dependencies:** Fastify, zod, React, Vite, fast-xml-parser (plus tsx, vitest and Playwright for dev).
+
+## How the backend works (step by step)
+"Backend" in Kip is just two small Node programs written in TypeScript. They never talk to each other directly, they share **files in `data/`**.
+
+```
+   (1) GENERATOR  — runs once a day, or when you ask        (2) SERVER  — runs while you use the app
+   npm run generate  →  src/generator/                      npm run serve  →  src/server/
+
+   internet / calendar / mail                                browser (React UI)
+          │                                                       ▲   │  GET /api/brief/today
+          ▼                                                       │   ▼  POST /api/notes, /api/feedback ...
+   collectors/*  (one per section)                          Fastify server on 127.0.0.1
+          │                                                       │   ▲
+          ▼                                                       ▼   │
+   data/briefings/2026-11-08.json  ───────── read by ───────►  data/ (briefings, notes, state) + config/*.md
+```
+
+### A. The generator: building the daily brief
+Entry point: `src/generator/cli.ts` → `generate()` in `run.ts`. In order:
+1. **Run the collectors side by side.** Each file in `collectors/` has the same shape: it receives `{ today, now }` and returns `{ items, warnings }` (or a puzzle). `chess`, `notes`, `meetings`, `email`, `work` and `world` all run at the same time.
+2. **Each one is fenced in by `runSection()`.** It adds a 60 second timeout, checks the result with the zod schema, and turns any problem into a card instead of a crash: an exception → "Something went wrong" card, `throw new NotConfigured(...)` → "Not set up yet" card. That is why one broken feed never breaks the rest.
+3. **Build "today's plan".** `collectors/today.ts` runs afterwards and only *rearranges* what the others returned (meetings, open tasks and priority notes, emails awaiting a reply, a "review N updates" line). It fetches nothing.
+4. **Check links.** `verifyLinks()` makes a request to every news/security link. Dead ones are marked `unverified` so you are never told something is verified when it isn't.
+5. **Validate and save.** The whole thing must pass `BriefingSchema` (`shared/schema.ts`), then is written to `data/briefings/DATE.json` (plus a `.md` copy). Files older than 14 days are deleted, because they can hold email and meeting text.
+
+What the collectors use:
+| Collector | Where its data comes from |
+|---|---|
+| `work.ts` | GitHub release feeds and npm/OSV for the packages in `config/stack.md`, plus platform news feeds. Filters (`filters.ts`) drop blocked outlets and rank favourites; `balance.ts` makes sure both "your stack" and "general news" get a fair share of the 10 slots. Release titles are prefixed with the repo name. |
+| `world.ts` | News RSS feeds listed in `config/sources.md`, mixed across politics, world and economy. |
+| `meetings.ts` / `email.ts` | Microsoft Graph through `connectors/microsoft.ts` if you signed in, otherwise an ICS calendar link (`ics.ts`) for meetings. Read-only. |
+| `notes.ts` | Your saved notes in `data/notes/DATE.md` plus your Completed/Priority choices in `data/note-state.json`. |
+| `chess.ts` | Picks today's theme, favouring ones you miss (`data/chess-weaknesses.json`), and links to Lichess. No API call. |
+
+Shared helpers: `net.ts` (`fetchT` = fetch with a timeout and clear errors), `feed.ts` (reads RSS/Atom and makes short plain-text summaries).
+
+### B. The server: serving the brief and saving your actions
+`src/server/index.ts` makes a random **token**, starts Fastify on `127.0.0.1` only, and writes a pid file so `stop.sh` can find it. `app.ts` holds the routes:
+| Route | What it does |
+|---|---|
+| `GET /api/brief/:date` | Reads `data/briefings/DATE.json`. For today it first calls `refreshNotes()` so notes you wrote after the morning run appear. If no brief exists it returns the sample from `fixtures/`. |
+| `POST /api/notes` | Appends a note (`### HH:MM` block) to `data/notes/DATE.md`. Used by auto-save when you leave "Add a new note". |
+| `GET /api/notes/:id`, `POST /api/notes/edit` | Read and replace one saved note's text (the ✎ Edit button). The note's id is a hash of its date, time and text, so an edit gives it a new id and the server moves your Completed/Priority choice across. |
+| `POST /api/notes/state` | Saves Completed / Priority / Deleted for one note in `data/note-state.json`. |
+| `POST /api/feedback` | 👍/👎 on a source: adds the domain to `config/sources.md` or `config/blocklist.md` via `mdConfig.ts`. |
+| `POST /api/puzzle-result`, `GET /api/puzzle-stats` | Records solved/missed so future themes favour your weak spots. |
+| `GET/POST /api/ms/*` | Microsoft sign-in status, connect (device code) and disconnect. |
+| `POST /api/shutdown` | Stops the server (the Shut down button). |
+| anything else | Serves the built React app from `dist/web`, inserting the token into `index.html`. |
+
+### C. The security guard (`security.ts`)
+It runs before every request. Think of it as three locks:
+1. **Host lock:** the `Host` header must be `127.0.0.1:PORT` or `localhost:PORT`. This stops a malicious website from pointing its own domain at your machine ("DNS rebinding").
+2. **Token lock:** every `/api` call must carry the `x-kip-token` header. The token only exists in the page Kip itself serves, so other sites can't read it.
+3. **Origin + JSON lock:** anything that changes data (POST) must also come from Kip's own origin and be `application/json`, which a plain HTML form on another site cannot send.
+
+### D. How a click travels end to end (example: ✓ Completed on a note)
+1. The checkbox in `src/web/Slides.tsx` calls `setNote()` in `App.tsx`, which updates the screen immediately.
+2. `api.ts` sends `POST /api/notes/state` with the token header.
+3. The guard checks host, token, origin and content type; zod checks the body (`NoteStateInput`).
+4. `setNoteState()` in `shared/notes.ts` writes `data/note-state.json`.
+5. Next time the brief loads, `notes.ts` reads that file, so the note shows struck-out today and disappears tomorrow.
+
+### E. Where to look when something is wrong
+- A section shows an error card → read its message; the collector file named after the section is where it came from.
+- Nothing updates → run `npm run generate` and read the per-section status it prints.
+- `403` errors in the browser console → the guard rejected the call (wrong token or Host, usually a stale tab after a restart: reload the page).
+- Anything you want to try safely → the Playwright and Vitest tests run against temporary folders, never your real `data/`.

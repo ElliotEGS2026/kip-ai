@@ -51,16 +51,18 @@ export const work: Collector = async ({ now, today }) => {
 
   // 1) GitHub release feeds + extra news feeds
   const feeds = [
-    ...stack.gh.map((r) => ({ url: `https://github.com/${r}/releases.atom`, tag: "release", days: 14, filter: false })),
-    ...prefs.work.map((url) => ({ url, tag: "news", days: 7, filter: false })),
-    ...prefs.platform.map((url) => ({ url, tag: "platform", days: 10, filter: true })),
+    ...stack.gh.map((r) => ({ url: `https://github.com/${r}/releases.atom`, tag: "release", days: 14, filter: false, repo: r })),
+    ...prefs.work.map((url) => ({ url, tag: "news", days: 7, filter: false, repo: "" })),
+    ...prefs.platform.map((url) => ({ url, tag: "platform", days: 10, filter: true, repo: "" })),
   ];
   await Promise.all(feeds.map((f) => run(new URL(f.url).hostname + new URL(f.url).pathname.slice(0, 40), async () => {
     // Skip monorepo sub-package releases ("pkg@1.0", "scope/pkg"): they drown out the main project's releases.
     const entries = (await fetchFeed(f.url)).filter((e) => now.getTime() - e.ms < f.days * DAY && (f.tag !== "release" || !/[@/]/.test(e.title)) && (!f.filter || WIDESPREAD.test(`${e.title} ${e.summary ?? ""}`)));
     for (const e of applyPrefs(entries, prefs).slice(0, f.tag === "release" ? 2 : f.tag === "platform" ? 3 : 4)) {
       if (f.tag !== "release") general.add(e.url);
-      items.push({ id: e.url, title: e.title, url: e.url, date: e.date, tag: classify(e.title, e.summary, f.tag === "platform" ? "news" : f.tag), summary: e.summary, source: new URL(e.url).hostname });
+      // A bare "v2.1.318" says nothing: name the project, and show where it came from.
+      const title = f.repo ? `${f.repo} ${e.title}` : e.title;
+      items.push({ id: e.url, title, url: e.url, date: e.date, tag: classify(e.title, e.summary, f.tag === "platform" ? "news" : f.tag), summary: e.summary, source: f.repo ? `github.com/${f.repo}` : new URL(e.url).hostname });
     }
   })));
 

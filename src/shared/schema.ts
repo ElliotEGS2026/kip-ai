@@ -74,6 +74,7 @@ export const PuzzleResultInput = z.object({
   solved: z.boolean(),
 });
 export const NoteInput = z.object({ text: z.string().trim().min(1).max(20000) });
+export const NoteEditInput = NoteInput.extend({ id: z.string().regex(/^[a-f0-9]{12}$/) });
 
 export const SECTION_TITLES: Record<SectionId, string> = {
   chess: "Brain teaser",

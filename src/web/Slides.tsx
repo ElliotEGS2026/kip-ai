@@ -2,7 +2,7 @@ import { createContext, useContext, useState } from "react";
 import type { Item, Section } from "../shared/schema";
 import { api } from "./api";
 import { SECTION_ICON, TAG_ICON, TAG_MEANING, ago, host, time } from "./format";
-import { NotesCapture } from "./Notes";
+import { NoteEdit, NotesCapture } from "./Notes";
 import { chunkNotes } from "./notesPaging";
 
 /** One screen of the walkthrough. Every item gets its own slide so nothing is skimmed past. */
@@ -109,6 +109,7 @@ function PlanBody({ s }: { s: Section }) {
 
 /** Several notes on one page, as bullet points, each with Completed + Priority controls. */
 function NotesPage({ slide, ui, setNote }: { slide: Slide; ui: Record<string, NoteUi>; setNote: SetNote }) {
+  const onSaved = useContext(NoteSavedCtx);
   const items = (slide.items ?? []).filter((i) => !noteState(i, ui).deleted);
   return (
     <div className="slide wide notes-page">
@@ -126,6 +127,7 @@ function NotesPage({ slide, ui, setNote }: { slide: Slide; ui: Record<string, No
               </div>
               {isTask(item) ? <span className="muted small">write “- [x] …” in a note to close</span> : (
                 <div className="note-actions">
+                  <NoteEdit item={item} onSaved={onSaved} />
                   <label className={`check ${st.completed ? "on" : ""}`}>
                     <input type="checkbox" data-testid="note-completed" checked={st.completed} onChange={(e) => setNote(item, { completed: e.target.checked })} />
                     <span>Completed</span>
@@ -152,7 +154,7 @@ export function SlideView({ slide, noteUi, setNote }: { slide: Slide; noteUi: Re
   if (slide.kind === "plan") return <PlanBody s={s} />;
   if (slide.kind === "notes") return <NotesPage slide={slide} ui={noteUi} setNote={setNote} />;
   if (slide.kind === "capture") {
-    return <div className="slide wide"><div className="big-ico" aria-hidden="true">🎙</div><h3 className="slide-title">Add a new note</h3><p className="muted">Type or speak a note. It appears in your notes straight away and stays on your list until you complete it.</p><NotesCapture showHistory={false} onSaved={onSaved} /></div>;
+    return <div className="slide wide"><div className="big-ico" aria-hidden="true">🎙</div><h3 className="slide-title">Add a new note</h3><p className="muted">Type or speak a note. It is saved automatically when you leave this page, then stays on your list until you complete it.</p><NotesCapture onSaved={onSaved} /></div>;
   }
   if (slide.kind === "status") {
     return (

@@ -8,9 +8,10 @@ const arr = <T>(v: T | T[] | undefined): T[] => (v === undefined ? [] : Array.is
 const text = (v: unknown): string => (typeof v === "object" && v !== null ? String((v as Record<string, unknown>)["#text"] ?? "") : String(v ?? "")).trim();
 
 /** Plain-text excerpt of an HTML/markup blob (release notes, descriptions). */
-export function excerpt(html: string, max = 320): string {
+export function excerpt(html: string, max = 600): string {
   const t = html
     .replace(/<(script|style)[\s\S]*?<\/\1>/gi, " ")
+    .replace(/<li[^>]*>/gi, " • ")
     .replace(/<[^>]+>/g, " ")
     .replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#0?39;/g, "'")
     .replace(/(^|\s)#{1,6}\s+/g, "$1")
