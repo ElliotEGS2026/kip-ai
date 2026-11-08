@@ -1,4 +1,6 @@
 import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { BriefingSchema, FeedbackInput, SectionSchema } from "../src/shared/schema.js";
 import { fixturePath } from "../src/shared/paths.js";
@@ -29,7 +31,7 @@ describe("briefing schema", () => {
 
 describe("md config", () => {
   it("adds bullets once and keeps other content", () => {
-    const dir = fs.mkdtempSync("/tmp/kipcfg-");
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "kipcfg-"));
     process.env.KIP_CONFIG_DIR = dir;
     fs.writeFileSync(`${dir}/b.md`, "# Title\nnote\n\n## Outlets\n- a.com\n\n## Topics\n");
     expect(addBullet("b.md", "Outlets", "b.com")).toBe(true);
