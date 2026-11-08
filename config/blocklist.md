@@ -3,5 +3,6 @@ Outlets are domains (e.g. example.com). Topics are keywords matched against titl
 
 ## Outlets
 - bleepingcomputer.com
+- nodejs.org
 
 ## Topics
