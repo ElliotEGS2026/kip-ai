@@ -5,12 +5,12 @@ Local app run each morning (~9am). Generates a daily briefing, shows it on `http
 
 ## Sections (order fixed)
 1. Brain teaser: chess theme weighted to weak themes → Lichess `/training/<theme>` link; solved/missed buttons update `data/chess-weaknesses.json`
-2. Yesterday's notes + open loops (`data/notes/YYYY-MM-DD.md`, written via the in-app note box or voice dictation; `- [ ]` = open loop, `- [x]` closes it)
+2. Previous notes + open loops (`data/notes/YYYY-MM-DD.md`, written via the in-app note box or voice; `- [ ]` = open loop, `- [x]` closes it). Notes are **not completed by default** and keep coming back until the user ticks **Completed**. **Priority** notes are listed first (and appear in Today's plan). Per-note choices live in `data/note-state.json` (older `seen`/`remind` fields are still understood). Several notes share one page as bullet points (max 5 / ~800 chars, then another page). Leaving a page with uncompleted notes shows a pop-up: Mark completed / Keep for later / Stay. The home-page core button opens this section: review notes, then add a new note. A note completed today stays listed struck-out with a **Delete** button (hides it for good; the text stays in `data/notes/`) and drops off from the next day by default. Saving a new note refreshes the list immediately (the server rebuilds the notes section on each load).
 3. Today's meetings (Microsoft Graph if connected, else ICS link) + rule-based one-line prep
 4. Email: unread/flagged/high-importance mail with no later sent reply (Microsoft only)
-5. Job-critical: GitHub release feeds + npm major bumps + high/critical OSV advisories for `config/stack.md`, plus extra feeds from `config/sources.md`
-6. World news from RSS feeds, minus `config/blocklist.md`, favourites first
-7. Today's plan: derived after the others run (never fetches): today's meetings, open-loop tasks, emails awaiting reply, a "review job-critical" nudge. Replaces the old 15-minute wake-up block.
+5. Job-critical (10 items, ≥3 general platform/industry news and ≥3 from your own stack, rest by priority breaking > security > major > release > news): GitHub release feeds + npm major bumps + high/critical OSV advisories for `config/stack.md`, plus wide-spread platform news (Node.js blog/vulnerabilities, GitHub changelog, TypeScript blog, BleepingComputer) filtered to breaking changes, majors and ecosystem-wide security issues (`## Platform news` in `config/sources.md`)
+6. World news (10 items): Guardian + BBC; >=2 government/economy (`## Government & economy news`), >=4 politics/finance in total (`## Politics & finance news`), >=3 general world (`## World news`), rest by priority; category comes from the feed, outlets alternate so neither crowds out the other; minus `config/blocklist.md`, favourites first
+7. Today's plan: derived after the others run (never fetches), one column top to bottom: today's meetings (by time), open tasks (priority notes first), emails awaiting reply, a "review job-critical" nudge. Replaces the old 15-minute wake-up block.
 UI (V2): sections 1+2 share the first page as tabs; then meetings, email, job-critical, world, plan; then sections spread out as clickable orbs.
 
 ## Architecture

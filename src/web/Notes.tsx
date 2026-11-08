@@ -5,7 +5,7 @@ import { useDictation } from "./Voice";
 interface Saved { date: string; text: string }
 
 /** Note capture (typed or spoken) plus the last few days of saved notes. Notes persist in data/notes/. */
-export function NotesCapture({ showHistory }: { showHistory: boolean }) {
+export function NotesCapture({ showHistory, onSaved }: { showHistory: boolean; onSaved?: () => void }) {
   const [text, setText] = useState("");
   const [msg, setMsg] = useState("");
   const [history, setHistory] = useState<Saved[]>([]);
@@ -14,7 +14,7 @@ export function NotesCapture({ showHistory }: { showHistory: boolean }) {
   const voice = useDictation((t) => setText((cur) => (cur ? `${cur} ${t}` : t)));
 
   const save = () => api("/api/notes", { text }).then(() => {
-    setText(""); setMsg("Saved - it will be in tomorrow's brief."); if (showHistory) void load();
+    setText(""); setMsg("Saved ✓ — it's now on your notes list (use ← Back to see it)."); if (showHistory) void load(); onSaved?.();
   }).catch((e: Error) => setMsg(`Failed: ${e.message}`));
 
   return (

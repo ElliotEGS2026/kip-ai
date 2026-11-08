@@ -21,8 +21,10 @@ export function buildToday(sections: Section[]): Result {
   for (const m of usable("meetings", "Meetings")?.items ?? []) {
     items.push({ id: `plan-m-${items.length}`, title: m.title, summary: m.summary, start: m.start, tag: "meeting" });
   }
-  for (const n of (usable("notes", "Notes")?.items ?? []).filter((i) => i.tag === "open-loop")) {
-    items.push({ id: `plan-t-${items.length}`, title: clip(n.title, 140), date: n.date, tag: "task" });
+  // Priority notes first, then open-loop tasks.
+  const noteItems = (usable("notes", "Notes")?.items ?? []).filter((i) => i.tag === "open-loop" || (i.priority && !i.completed));
+  for (const n of [...noteItems.filter((i) => i.priority), ...noteItems.filter((i) => !i.priority)]) {
+    items.push({ id: `plan-t-${items.length}`, title: `${n.priority ? "⭐ " : ""}${clip(n.title, 140)}`, date: n.date, tag: "task" });
   }
   for (const e of (usable("email", "Email")?.items ?? []).filter((i) => i.tag === "awaiting-reply")) {
     items.push({ id: `plan-r-${items.length}`, title: `Reply: ${clip(e.title, 120)}`, summary: e.summary, url: e.url, date: e.date, tag: "reply" });

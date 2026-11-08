@@ -10,7 +10,10 @@ export function loadPrefs() {
     favOutlets: (src["Favourites"] ?? []).map((s) => s.toLowerCase()),
     favTopics: (src["Favourite topics"] ?? []).map((s) => s.toLowerCase()),
     work: src["Work news"] ?? [],
+    platform: src["Platform news"] ?? [],
     world: src["World news"] ?? [],
+    politics: src["Politics & finance news"] ?? [],
+    economy: src["Government & economy news"] ?? [],
   };
 }
 export type Prefs = ReturnType<typeof loadPrefs>;

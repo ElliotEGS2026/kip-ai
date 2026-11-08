@@ -6,6 +6,8 @@ import { addBullet, hostOf } from "../shared/mdConfig.js";
 import { dataDir, fixturePath, webDist } from "../shared/paths.js";
 import { localDate } from "../shared/dates.js";
 import { readChess, recordResult } from "../shared/chessState.js";
+import { NoteStateInput, setNoteState } from "../shared/notes.js";
+import { refreshNotes } from "../generator/refresh.js";
 import { guard, type Guard } from "./security.js";
 import { registerMicrosoft } from "./microsoftRoutes.js";
 
@@ -31,7 +33,9 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     const file = path.join(dataDir(), "briefings", `${date.data}.json`);
     if (fs.existsSync(file)) {
       const parsed = BriefingSchema.safeParse(JSON.parse(fs.readFileSync(file, "utf8")));
-      return parsed.success ? parsed.data : reply.code(500).send({ error: "stored briefing failed validation" });
+      if (!parsed.success) return reply.code(500).send({ error: "stored briefing failed validation" });
+      // Today's notes may have been written after the morning generation: rebuild the note-dependent sections.
+      return date.data === localDate() ? refreshNotes(parsed.data) : parsed.data;
     }
     if (date.data === localDate()) {
       return { ...JSON.parse(fs.readFileSync(fixturePath(), "utf8")), date: date.data, sample: true };
@@ -73,6 +77,14 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     const hhmm = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
     fs.appendFileSync(path.join(dir, `${localDate(now)}.md`), `### ${hhmm}\n${body.data.text}\n\n`);
     return { ok: true };
+  });
+
+  /** Per-note choices: completed (off by default) and priority. Stored in data/note-state.json. */
+  app.post("/api/notes/state", async (req, reply) => {
+    const body = NoteStateInput.safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ error: "invalid input" });
+    const { id, ...patch } = body.data;
+    return setNoteState(id, patch);
   });
 
   registerMicrosoft(app);

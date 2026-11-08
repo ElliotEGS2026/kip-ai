@@ -17,6 +17,8 @@ export const ItemSchema = z.object({
   source: z.string().optional(),
   tag: z.string().optional(), // e.g. "security", "release", "awaiting-reply"
   unverified: z.boolean().optional(),
+  priority: z.boolean().optional(), // notes: user flagged as priority
+  completed: z.boolean().optional(), // notes: completed today (shown struck out until tomorrow)
 });
 export type Item = z.infer<typeof ItemSchema>;
 
@@ -75,7 +77,7 @@ export const NoteInput = z.object({ text: z.string().trim().min(1).max(20000) })
 
 export const SECTION_TITLES: Record<SectionId, string> = {
   chess: "Brain teaser",
-  notes: "Yesterday's notes & open loops",
+  notes: "Previous notes & open loops",
   meetings: "Today's meetings",
   email: "Email",
   work: "Job-critical",

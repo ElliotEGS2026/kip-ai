@@ -22,6 +22,33 @@ afterEach(async () => { await app.close(); delete process.env.KIP_DATA_DIR; dele
 const post = (url: string, headers: Record<string, string>, payload: unknown = {}) =>
   app.inject({ method: "POST", url, headers: { "content-type": "application/json", ...headers }, payload: JSON.stringify(payload) });
 
+describe("today's brief picks up notes written after generation", () => {
+  it("includes a note saved today when the brief is loaded", async () => {
+    const day = localDate();
+    const fixture = JSON.parse(fs.readFileSync(path.join(process.cwd(), "fixtures", "briefing.sample.json"), "utf8"));
+    fs.mkdirSync(path.join(process.env.KIP_DATA_DIR!, "briefings"), { recursive: true });
+    fs.writeFileSync(path.join(process.env.KIP_DATA_DIR!, "briefings", `${day}.json`), JSON.stringify({ ...fixture, date: day, sample: undefined }));
+    const before = await app.inject({ method: "GET", url: `/api/brief/${day}`, headers: good });
+    expect(JSON.stringify(before.json())).not.toContain("written after generation");
+    expect((await post("/api/notes", good, { text: "written after generation" })).statusCode).toBe(200);
+    const after = (await app.inject({ method: "GET", url: `/api/brief/${day}`, headers: good })).json();
+    const notes = after.sections.find((x: { id: string }) => x.id === "notes");
+    expect(notes.items.map((i: { title: string }) => i.title)).toContain("written after generation");
+    expect(after.sections.map((x: { id: string }) => x.id)).toHaveLength(7);
+  });
+});
+
+describe("note state", () => {
+  it("stores per-note choices and rejects bad ids", async () => {
+    const ok = await post("/api/notes/state", good, { id: "abcdef012345", completed: true, priority: true });
+    expect(ok.statusCode).toBe(200);
+    expect(JSON.parse(fs.readFileSync(path.join(process.env.KIP_DATA_DIR!, "note-state.json"), "utf8")).abcdef012345).toMatchObject({ completed: true, priority: true, completedAt: localDate() });
+    expect((await post("/api/notes/state", good, { id: "../../etc", completed: true })).statusCode).toBe(400);
+    const { "x-kip-token": _t, ...noToken } = good;
+    expect((await post("/api/notes/state", noToken, { id: "abcdef012345" })).statusCode).toBe(403);
+  });
+});
+
 describe("shutdown security", () => {
   it("rejects missing token", async () => {
     const { "x-kip-token": _t, ...h } = good;

@@ -4,11 +4,14 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { generate, pruneOld, COLLECTORS } from "../src/generator/run.js";
 import { parseFeed } from "../src/generator/feed.js";
+import { balance } from "../src/generator/balance.js";
 import { applyPrefs } from "../src/generator/filters.js";
 import { parseIcs, prepLine } from "../src/generator/collectors/ics.js";
-import { stackFromText } from "../src/generator/collectors/work.js";
+import { stackFromText, classify, WIDESPREAD } from "../src/generator/collectors/work.js";
 import { notes } from "../src/generator/collectors/notes.js";
+import { readNoteEntries, setNoteState } from "../src/shared/notes.js";
 import { buildToday } from "../src/generator/collectors/today.js";
+import { chunkNotes } from "../src/web/notesPaging.js";
 import { THEMES, pickTheme, recordResult, readChess, seeded, weight } from "../src/shared/chessState.js";
 import { localDate, addDays } from "../src/shared/dates.js";
 
@@ -53,8 +56,33 @@ describe("parsers", () => {
   it("applies blocklist and favourites", () => {
     const e = (t: string, u: string, ms: number) => ({ title: t, url: u, date: "2026-11-01", ms });
     const out = applyPrefs([e("new", "https://bad.com/1", 3), e("old fav", "https://www.fav.com/1", 1), e("sport news", "https://ok.com/1", 2), e("fine", "https://ok.com/2", 4)],
-      { blockedOutlets: ["bad.com"], blockedTopics: ["sport"], favOutlets: ["fav.com"], favTopics: [], work: [], world: [] });
+      { blockedOutlets: ["bad.com"], blockedTopics: ["sport"], favOutlets: ["fav.com"], favTopics: [], work: [], platform: [], world: [], politics: [], economy: [] });
     expect(out.map((x) => x.title)).toEqual(["old fav", "fine"]);
+  });
+  it("classifies wide-spread changes and filters platform noise", () => {
+    expect(classify("Node.js 27 is now available", undefined, "news")).toBe("major");
+    expect(classify("v3.0.0", "BREAKING CHANGE: drops CJS", "release")).toBe("breaking");
+    expect(classify("Malicious npm packages found", undefined, "news")).toBe("security");
+    expect(classify("v2.1.4", "bug fixes", "release")).toBe("release");
+    expect(WIDESPREAD.test("Copilot gets a new theme")).toBe(false);
+    expect(WIDESPREAD.test("Node.js 27 released")).toBe(true);
+  });
+  it("feed entries carry a plain-text summary", () => {
+    const xml = '<feed><entry><title>v1</title><link href="https://x.com/r"/><updated>2026-11-01T00:00:00Z</updated><content type="html">&lt;p&gt;Fixes &amp;amp; things&lt;/p&gt;</content></entry></feed>';
+    expect(parseFeed(xml)[0]?.summary).toBe("Fixes & things");
+  });
+  it("balance guarantees group minimums, then fills by priority", () => {
+    const cmp = (a: number, b: number) => a - b; // lower = higher priority
+    const general = [5, 6, 7, 8, 9], stack = [1, 2, 3, 4, 20, 21];
+    const out = balance([{ items: general, min: 3 }, { items: stack, min: 3 }], 8, cmp);
+    expect(out).toHaveLength(8);
+    expect(out).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+    // a group with few items cannot crowd out the other
+    const lopsided = balance([{ items: [100, 101], min: 3 }, { items: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], min: 3 }], 10, cmp);
+    expect(lopsided).toHaveLength(10);
+    expect(lopsided).toContain(100);
+    // minimums win over priority when the other group has better items
+    expect(balance([{ items: [50, 51, 52], min: 3 }, { items: [1, 2, 3, 4], min: 0 }], 5, cmp)).toEqual([1, 2, 50, 51, 52].sort(cmp));
   });
   it("parses ICS (UTC, all-day, cancelled, folded lines)", () => {
     const ics = ["BEGIN:VEVENT", "UID:1", "DTSTART:20261108T093000Z", "SUMMARY:Stand\\, up", "ATTENDEE:mailto:a@x", "ATTENDEE:mailto:b@x", "DESCRIPTION:https://teams.microsoft.com/l/meetup", "END:VEVENT",
@@ -77,9 +105,70 @@ describe("notes + chess", () => {
     fs.writeFileSync(path.join(nd, `${localDate(addDays(now, -1))}.md`), "### 09:00\nMet client\n- [ ] send spec\n- [ ] book room\n\n");
     fs.writeFileSync(path.join(nd, `${localDate(now)}.md`), "- [x] book room\n");
     const r = await notes({ today: localDate(now), now });
-    expect(r.items?.find((i) => i.id === "note-0")?.title).toBe("Met client");
+    expect(r.items?.find((i) => i.tag === "note")?.title).toBe("Met client");
     const loops = r.items?.filter((i) => i.tag === "open-loop").map((i) => i.title);
     expect(loops).toEqual(["send spec"]);
+  });
+  it("notes are NOT completed by default: all stay listed (priority first) until completed", async () => {
+    const nd = path.join(process.env.KIP_DATA_DIR!, "notes"); fs.mkdirSync(nd, { recursive: true });
+    const now = new Date();
+    const d = (n: number) => localDate(addDays(now, -n));
+    fs.writeFileSync(path.join(nd, `${d(1)}.md`), "### 09:00\nfresh note\n\n### 10:00\ndone note\n\n");
+    fs.writeFileSync(path.join(nd, `${d(3)}.md`), "### 08:00\nlegacy remind note\n\n### 09:30\nprio note\nmore detail\n\n### 11:00\nlegacy addressed note\n\n");
+    fs.writeFileSync(path.join(nd, `${d(20)}.md`), "### 07:00\nancient but priority\n\n### 07:30\nancient uncompleted\n\n");
+    fs.writeFileSync(path.join(nd, `${localDate(now)}.md`), "### 07:00\ntoday's note\n\n");
+    const id = Object.fromEntries(readNoteEntries().map((e) => [e.text.split("\n")[0], e.id])) as Record<string, string>;
+    setNoteState(id["done note"]!, { completed: true });
+    setNoteState(id["prio note"]!, { priority: true });
+    setNoteState(id["ancient but priority"]!, { priority: true });
+    // state written by the previous version still behaves: seen = addressed, seen + remind = still open
+    fs.writeFileSync(path.join(process.env.KIP_DATA_DIR!, "note-state.json"), JSON.stringify({
+      ...JSON.parse(fs.readFileSync(path.join(process.env.KIP_DATA_DIR!, "note-state.json"), "utf8")),
+      [id["legacy addressed note"]!]: { seen: true },
+      [id["legacy remind note"]!]: { seen: true, remind: true },
+    }));
+    const r = await notes({ today: localDate(now), now });
+    const titles = (r.items ?? []).filter((i) => i.tag !== "open-loop").map((i) => i.title);
+    // open notes first (priority, then newest); a note completed today is still listed, last, struck out
+    expect(titles).toEqual(["prio note", "ancient but priority", "today's note", "fresh note", "legacy remind note", "ancient uncompleted", "done note"]);
+    expect(r.items?.find((i) => i.title === "done note")).toMatchObject({ completed: true });
+    expect(titles).not.toContain("legacy addressed note");
+    expect(r.items?.find((i) => i.title === "prio note")).toMatchObject({ tag: "priority", priority: true, summary: "more detail" });
+    expect(r.items?.find((i) => i.title === "fresh note")).toMatchObject({ tag: "note", priority: false });
+  });
+  it("a completed note stays struck out today, is gone tomorrow; un-completing restores it", async () => {
+    const nd = path.join(process.env.KIP_DATA_DIR!, "notes"); fs.mkdirSync(nd, { recursive: true });
+    const now = new Date(), tomorrow = addDays(now, 1);
+    fs.writeFileSync(path.join(nd, `${localDate(now)}.md`), "### 07:00\none thing\n\n");
+    const [e] = readNoteEntries();
+    const run = (d: Date) => notes({ today: localDate(d), now: d });
+    expect((await run(now)).items).toMatchObject([{ title: "one thing", completed: false }]);
+    expect(setNoteState(e!.id, { completed: true }, now).completedAt).toBe(localDate(now));
+    expect((await run(now)).items).toMatchObject([{ title: "one thing", completed: true }]); // still there, struck out
+    expect((await run(tomorrow)).items).toHaveLength(0); // dropped off by default the next day
+    expect(setNoteState(e!.id, { completed: false }, now).completedAt).toBeUndefined();
+    expect((await run(tomorrow)).items).toHaveLength(1); // not completed => keeps coming back
+  });
+  it("a deleted note is never shown (the text stays on disk)", async () => {
+    const nd = path.join(process.env.KIP_DATA_DIR!, "notes"); fs.mkdirSync(nd, { recursive: true });
+    const now = new Date();
+    fs.writeFileSync(path.join(nd, `${localDate(now)}.md`), "### 07:00\nkeep me\n\n### 08:00\ndelete me\n\n");
+    const byText = Object.fromEntries(readNoteEntries().map((e) => [e.text, e.id]));
+    setNoteState(byText["delete me"]!, { completed: true, deleted: true }, now);
+    expect((await notes({ today: localDate(now), now })).items?.map((i) => i.title)).toEqual(["keep me"]);
+    expect(fs.readFileSync(path.join(nd, `${localDate(now)}.md`), "utf8")).toContain("delete me");
+  });
+  it("notes share pages: up to 5 per page, long ones split sooner", () => {
+    const mk = (n: number, len = 10) => Array.from({ length: n }, (_, i) => ({ id: `n${i}`, title: "x".repeat(len) }));
+    expect(chunkNotes(mk(3)).map((p) => p.length)).toEqual([3]);
+    expect(chunkNotes(mk(12)).map((p) => p.length)).toEqual([5, 5, 2]);
+    expect(chunkNotes(mk(4, 400)).map((p) => p.length)).toEqual([2, 2]);
+    expect(chunkNotes([])).toEqual([]);
+  });
+  it("priority notes appear first in today's plan", () => {
+    const sec = (id: string, items: object[]) => ({ id, title: id, status: "ok", warnings: [], items }) as never;
+    const r = buildToday([sec("notes", [{ id: "a", title: "Loop", tag: "open-loop" }, { id: "b", title: "Big one", tag: "priority", priority: true }])]);
+    expect(r.items?.map((i) => i.title)).toEqual(["⭐ Big one", "Loop"]);
   });
   it("missed themes get picked more often", () => {
     for (let i = 0; i < 5; i++) recordResult(`p${i}`, "fork", false);
