@@ -62,3 +62,6 @@ export async function startWalk(page: Page): Promise<void> {
 
 export const next = (page: Page) => page.getByRole("button", { name: /^(Next|Finish)/ });
 export const back = (page: Page) => page.getByRole("button", { name: "← Back" });
+
+/** Jumps from the first puzzle straight to the notes pages (skipping the three puzzles). */
+export const toNotesTab = (page: Page) => page.getByRole("tab", { name: /Previous notes/ }).click();

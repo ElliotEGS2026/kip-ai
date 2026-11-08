@@ -1,5 +1,5 @@
-import { createContext, useContext, useEffect, useState } from "react";
-import type { Item, Section } from "../shared/schema";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
+import type { Item, Outcome, Puzzle as PuzzleData, Section } from "../shared/schema";
 import { api } from "./api";
 import { addDays, localDate } from "../shared/dates";
 import { SECTION_ICON, TAG_ICON, TAG_MEANING, ago, host, repoOf, time } from "./format";
@@ -13,6 +13,7 @@ export interface Slide {
   section: Section;
   kind: "item" | "status" | "puzzle" | "capture" | "plan" | "notes";
   item?: Item;
+  puzzle?: PuzzleData; // kind "puzzle": which of today's puzzles
   items?: Item[]; // kind "notes": several notes on one page
   n?: number;
   of?: number;
@@ -25,7 +26,8 @@ export function buildSlides(sections: Section[]): Slide[] {
     const tab = s.id === "chess" ? "teaser" : s.id === "notes" ? "notes" : undefined;
     const base = { group, tab, section: s } as const;
     if (s.id === "today") { out.push({ ...base, kind: "plan" }); continue; }
-    if (s.status === "ok" && s.id === "chess" && s.puzzle) out.push({ ...base, kind: "puzzle" });
+    const puzzles = s.id === "chess" && s.status === "ok" ? (s.puzzles?.length ? s.puzzles : s.puzzle ? [s.puzzle] : []) : [];
+    if (puzzles.length) puzzles.forEach((puzzle, i) => out.push({ ...base, kind: "puzzle", puzzle, n: i + 1, of: puzzles.length })); // one slide per puzzle, in a row
     else if (s.status !== "ok" || s.items.length === 0) out.push({ ...base, kind: "status" });
     else if (s.id === "notes") { const pages = chunkNotes(s.items); pages.forEach((items, i) => out.push({ ...base, kind: "notes", items, n: i + 1, of: pages.length })); }
     else s.items.forEach((item, i) => out.push({ ...base, kind: "item", item, n: i + 1, of: s.items.length }));
@@ -66,18 +68,39 @@ function Thumbs({ item }: { item: Item }) {
   );
 }
 
-function Puzzle({ s }: { s: Section }) {
-  const [res, setRes] = useState("");
-  const p = s.puzzle;
+const OUTCOME_TEXT: Record<Outcome, string> = {
+  solved: "Solved ✔ recorded",
+  helped: "Solved with help ◐ noted — we'll show a bit more of this theme",
+  missed: "Missed — we'll show more of this theme",
+  skipped: "Skipped — not counted either way",
+};
+
+/** One puzzle. Records how it went (solved / solved with help / missed / skipped) and how long you spent on it. */
+function Puzzle({ slide }: { slide: Slide }) {
+  const p = slide.puzzle;
+  const [outcome, setOutcome] = useState<Outcome | undefined>(p?.result);
+  const [err, setErr] = useState("");
+  const shownAt = useRef(Date.now());
   if (!p) return null;
-  const record = (solved: boolean) => api("/api/puzzle-result", { puzzleId: p.id, theme: p.theme, solved }).then(() => setRes(solved ? "Solved ✔ recorded" : "Missed — we'll show more of this theme")).catch(() => setRes("Could not save"));
+  const record = (o: Outcome) => {
+    const seconds = Math.min(3600, Math.round((Date.now() - shownAt.current) / 1000));
+    api("/api/puzzle-result", { puzzleId: p.id, theme: p.theme, outcome: o, seconds, index: slide.n })
+      .then(() => { setOutcome(o); setErr(""); }).catch(() => setErr("Could not save — is the server running?"));
+  };
   return (
     <div className="slide">
       <div className="big-ico" aria-hidden="true">♞</div>
-      <p className="kicker">Today's theme</p>
+      <p className="kicker">Puzzle {slide.n} of {slide.of} · theme</p>
       <h3 className="slide-title">{p.theme}</h3>
       <p><a className="bigbtn" href={p.url} target="_blank" rel="noreferrer noopener">Open puzzle on Lichess ↗</a></p>
-      {res ? <p className="muted">{res}</p> : <p className="actions-row"><span className="muted">When you're done:</span><button onClick={() => record(true)}>✔ Solved it</button><button className="ghost" onClick={() => record(false)}>✗ Missed it</button></p>}
+      {outcome
+        ? <p className="muted" data-testid="puzzle-result">{OUTCOME_TEXT[outcome]} <button className="ghost" onClick={() => setOutcome(undefined)}>Change answer</button></p>
+        : <p className="actions-row"><span className="muted">When you're done:</span>
+            <button onClick={() => record("solved")}>✔ Solved it</button>
+            <button className="ghost" onClick={() => record("helped")} title="Solved, but with hints or after mistakes">◐ Solved with help</button>
+            <button className="ghost" onClick={() => record("missed")}>✗ Missed it</button>
+            <button className="ghost" onClick={() => record("skipped")} title="Not attempted: counts neither way">⏭ Skip</button></p>}
+      {err && <p className="err small">{err}</p>}
     </div>
   );
 }
@@ -160,7 +183,7 @@ export function SlideView({ slide, noteUi, setNote }: { slide: Slide; noteUi: Re
   const onSaved = useContext(NoteSavedCtx);
   const { section: s, item } = slide;
   const sourced = s.id === "work" || s.id === "world";
-  if (slide.kind === "puzzle") return <Puzzle s={s} />;
+  if (slide.kind === "puzzle") return <Puzzle slide={slide} />;
   if (slide.kind === "plan") return <PlanBody s={s} />;
   if (slide.kind === "notes") return <NotesPage slide={slide} ui={noteUi} setNote={setNote} />;
   if (slide.kind === "capture") {

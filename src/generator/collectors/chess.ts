@@ -1,12 +1,15 @@
-import { THEMES, pickTheme, readChess, seeded } from "../../shared/chessState.js";
+import { THEMES, pickThemes, readChess, seeded } from "../../shared/chessState.js";
 import type { Collector } from "../types.js";
 
+export const PUZZLES_PER_DAY = 3;
+
 /**
- * v1: pick today's theme weighted towards weak themes (seeded by date so it is stable all day)
- * and link to Lichess's themed trainer. No puzzle API is called (endpoint shapes UNVERIFIED), so this never fails.
+ * Today's brain teasers: `PUZZLES_PER_DAY` different themes in a row, weighted towards the themes you miss (stable all day: seeded by date),
+ * each linking to Lichess's themed trainer. No puzzle API is called (endpoint shapes UNVERIFIED), so this never fails.
  */
 export const chess: Collector = async ({ today }) => {
-  const theme = pickTheme(readChess(), seeded(`chess-${today}`)());
-  if (!THEMES.includes(theme as (typeof THEMES)[number])) throw new Error("bad theme");
-  return { puzzle: { id: `${today}-${theme}`, theme, url: `https://lichess.org/training/${theme}`, themes: [theme] } };
+  const themes = pickThemes(readChess(), seeded(`chess-${today}`), PUZZLES_PER_DAY);
+  if (themes.some((t) => !THEMES.includes(t as (typeof THEMES)[number]))) throw new Error("bad theme");
+  const puzzles = themes.map((theme) => ({ id: `${today}-${theme}`, theme, url: `https://lichess.org/training/${theme}`, themes: [theme] }));
+  return { puzzle: puzzles[0], puzzles };
 };

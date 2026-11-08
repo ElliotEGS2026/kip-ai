@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { dataDir, reset, startWalk, TODAY } from "./helpers";
+import { dataDir, reset, startWalk, toNotesTab, TODAY } from "./helpers";
 
 test("a failing section shows an error card and the rest still work", async ({ page }) => {
   reset({ statuses: { meetings: { status: "error", message: "Calendar unreachable" } } });
@@ -57,7 +57,7 @@ test("a failed note-state save surfaces an error banner", async ({ page }) => {
   reset({ notes: ["Some note"] });
   await page.route("**/api/notes/state", (r) => r.fulfill({ status: 500, contentType: "application/json", body: "{}" }));
   await startWalk(page);
-  await page.getByRole("button", { name: /^Next/ }).click();
+  await toNotesTab(page);
   await page.getByTestId("note-completed").check();
   await expect(page.locator(".banner.err")).toContainText("Could not save your note choice");
 });

@@ -10,13 +10,39 @@
       "warnings": [],
       "items": [],
       "puzzle": {
-        "id": "sample",
+        "id": "sample-fork",
         "theme": "fork",
         "url": "https://lichess.org/training/fork",
         "themes": [
           "fork"
         ]
-      }
+      },
+      "puzzles": [
+        {
+          "id": "sample-fork",
+          "theme": "fork",
+          "url": "https://lichess.org/training/fork",
+          "themes": [
+            "fork"
+          ]
+        },
+        {
+          "id": "sample-pin",
+          "theme": "pin",
+          "url": "https://lichess.org/training/pin",
+          "themes": [
+            "pin"
+          ]
+        },
+        {
+          "id": "sample-mateIn2",
+          "theme": "mateIn2",
+          "url": "https://lichess.org/training/mateIn2",
+          "themes": [
+            "mateIn2"
+          ]
+        }
+      ]
     },
     {
       "id": "notes",

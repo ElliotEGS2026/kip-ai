@@ -51,7 +51,7 @@ export function toMarkdown(b: Briefing): string {
   for (const s of b.sections) {
     lines.push(`## ${s.title}`);
     if (s.status !== "ok") lines.push(`_${s.status === "error" ? "Error" : "Not set up"}: ${s.message ?? ""}_`);
-    if (s.puzzle) lines.push(`- Theme **${s.puzzle.theme}**: ${s.puzzle.url}`);
+    for (const p of s.puzzles ?? (s.puzzle ? [s.puzzle] : [])) lines.push(`- Theme **${p.theme}**: ${p.url}`);
     for (const i of s.items) {
       lines.push(`- ${i.start ? `${new Date(i.start).toTimeString().slice(0, 5)} ` : ""}${i.tag ? `[${i.tag}] ` : ""}${i.url ? `[${i.title}](${i.url})` : i.title}${i.date ? ` (${i.date})` : ""}${i.unverified ? " _unverified_" : ""}${i.summary ? ` — ${i.summary}` : ""}`);
     }
