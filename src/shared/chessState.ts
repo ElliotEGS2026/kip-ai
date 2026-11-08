@@ -38,8 +38,8 @@ export function recordResult(puzzleId: string, theme: string, solved: boolean): 
   return s;
 }
 
-/** Weak themes weigh more: (fails+1)/(attempts+2). */
-export const weight = (t?: { attempts: number; fails: number }): number => ((t?.fails ?? 0) + 1) / ((t?.attempts ?? 0) + 2);
+/** Weak themes weigh more: ((fails+1)/(attempts+2))^2. Unseen themes start at 0.25 so new themes still get explored. */
+export const weight = (t?: { attempts: number; fails: number }): number => (((t?.fails ?? 0) + 1) / ((t?.attempts ?? 0) + 2)) ** 2;
 
 /** Deterministic per-day pick (rand in [0,1)) so the same puzzle shows all day. */
 export function pickTheme(state: ChessState, rand: number): string {
