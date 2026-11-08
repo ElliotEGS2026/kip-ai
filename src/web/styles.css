@@ -1,0 +1,23 @@
+:root { --bg:#0e0a0a; --card:#1a1212; --line:#33201f; --text:#f2e9e8; --muted:#a58f8d; --red:#e5262b; --red2:#ff5a5f; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--text); font:16px/1.5 system-ui,-apple-system,Segoe UI,sans-serif; }
+main { max-width:760px; margin:0 auto; padding:16px; }
+header { display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center; justify-content:space-between; margin-bottom:12px; }
+h1 { margin:0; font-size:2rem; letter-spacing:.04em; } h1 span { color:var(--red); }
+h2 { margin:0; font-size:1.05rem; display:inline; }
+.actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.card { background:var(--card); border:1px solid var(--line); border-left:3px solid var(--red); border-radius:8px; padding:10px 14px; margin:10px 0; }
+.card-error { border-left-color:#ffb020; }
+summary { cursor:pointer; display:flex; justify-content:space-between; align-items:center; }
+.count { color:var(--muted); font-size:.85rem; }
+ul { list-style:none; padding:0; margin:10px 0 0; } li { padding:8px 0; border-top:1px solid var(--line); } li:first-child { border-top:0; }
+a { color:var(--red2); } .muted { color:var(--muted); } .small { font-size:.82rem; } .err { color:#ffb020; }
+.time { color:var(--red2); margin-right:8px; font-variant-numeric:tabular-nums; }
+.tag { font-size:.7rem; text-transform:uppercase; border:1px solid var(--line); border-radius:4px; padding:0 5px; margin-right:6px; color:var(--muted); }
+.tag-security { color:#ffb020; border-color:#ffb020; }
+button { background:var(--red); color:#fff; border:0; border-radius:6px; padding:6px 12px; cursor:pointer; font:inherit; font-size:.9rem; }
+button:disabled { opacity:.4; cursor:default; } button.ghost { background:transparent; border:1px solid var(--line); color:var(--text); }
+button.danger { background:transparent; border:1px solid var(--red); color:var(--red2); }
+.thumbs button { background:transparent; padding:0 4px; } .banner { background:#2a1717; border:1px dashed var(--red); padding:8px 12px; border-radius:6px; }
+textarea { width:100%; background:#120c0c; color:var(--text); border:1px solid var(--line); border-radius:6px; padding:8px; font:inherit; margin-top:10px; }
+code { background:#120c0c; padding:1px 5px; border-radius:4px; }
