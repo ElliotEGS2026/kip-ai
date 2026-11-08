@@ -1,0 +1,23 @@
+{
+  "date": "2026-01-01",
+  "generatedAt": "2026-01-01T09:00:00.000Z",
+  "sample": true,
+  "sections": [
+    { "id": "notes", "title": "Yesterday's notes & open loops", "status": "ok", "warnings": [], "items": [
+      { "id": "n1", "title": "Sample note: kicked off the client integration", "date": "2025-12-31" },
+      { "id": "n2", "title": "Send API spec to the client", "tag": "open-loop", "date": "2025-12-30" } ] },
+    { "id": "meetings", "title": "Today's meetings", "status": "ok", "warnings": [], "items": [
+      { "id": "m1", "title": "Sample stand-up", "start": "2026-01-01T09:30:00.000Z", "summary": "Prep: 5 attendees, online meeting" } ] },
+    { "id": "email", "title": "Email", "status": "not_configured", "message": "Connect Microsoft in the header to see email.", "warnings": [], "items": [] },
+    { "id": "work", "title": "Job-critical", "status": "ok", "warnings": [], "items": [
+      { "id": "w1", "title": "Sample release: example/project v2.0.0", "url": "https://example.com/release", "date": "2025-12-31", "source": "example.com", "tag": "release" },
+      { "id": "w2", "title": "Sample advisory: example-package (HIGH)", "url": "https://example.com/advisory", "date": "2025-12-30", "source": "osv.dev", "tag": "security" } ] },
+    { "id": "world", "title": "World news", "status": "error", "message": "Sample error card: feed unreachable", "warnings": [], "items": [] },
+    { "id": "chess", "title": "Brain teaser", "status": "ok", "warnings": [], "items": [],
+      "puzzle": { "id": "sample", "theme": "fork", "url": "https://lichess.org/training/fork", "themes": ["fork"] } },
+    { "id": "wakeup", "title": "15-minute wake-up", "status": "ok", "warnings": [], "items": [
+      { "id": "u1", "title": "5 min stretch + 5 min walk + 5 min plan" },
+      { "id": "u2", "title": "Glass of water, 10 min mobility, 5 min journal" },
+      { "id": "u3", "title": "Breakfast away from screens, 5 min sunlight" } ] }
+  ]
+}
