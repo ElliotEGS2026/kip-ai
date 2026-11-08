@@ -5,8 +5,8 @@ import { addDays, localDate } from "../../shared/dates.js";
 import { isCompleted, readNoteEntries, readNoteState } from "../../shared/notes.js";
 import type { Item } from "../../shared/schema.js";
 import type { Collector } from "../types.js";
+import { clip } from "../../shared/text.js";
 
-const clip = (s: string, n: number): string => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 const read = (date: string): string => {
   try { return fs.readFileSync(path.join(dataDir(), "notes", `${date}.md`), "utf8"); } catch { return ""; }
 };

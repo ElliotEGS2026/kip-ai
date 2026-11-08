@@ -1,7 +1,6 @@
 import type { Item, Section } from "../../shared/schema.js";
 import type { Result } from "../types.js";
-
-const clip = (s: string, n: number): string => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
+import { clip } from "../../shared/text.js";
 
 /**
  * "Today's plan": next steps derived ONLY from the other sections' real items (nothing invented).
