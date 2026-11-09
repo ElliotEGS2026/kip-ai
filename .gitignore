@@ -8,3 +8,8 @@ data/*
 
 test-results/
 playwright-report/
+
+# Impeccable design tool: downloaded engine binary + local hook settings
+.claude/skills/impeccable/scripts/bin/
+.claude/settings.local.json
+.impeccable/cache/
