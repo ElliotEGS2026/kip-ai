@@ -15,6 +15,7 @@ const VIEWPORTS = [
   { name: "tablet-820", width: 820, height: 1180 },
   { name: "phone-390", width: 390, height: 844 },
   { name: "phone-small-320", width: 320, height: 568 },
+  { name: "ultrawide-2560x720", width: 2560, height: 720 },
 ];
 
 const LONG = "An extraordinarily long headline that keeps going so we can see how the slide copes when a feed returns something far wider and taller than the happy path ever shows";
