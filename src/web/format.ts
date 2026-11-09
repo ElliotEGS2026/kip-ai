@@ -12,8 +12,8 @@ export const ago = (d?: string): string => {
   return days === 0 ? "today" : days === 1 ? "yesterday" : `${days} days ago`;
 };
 
-export const SECTION_ICON: Record<string, string> = { chess: "🧩", notes: "📝", meetings: "📅", email: "✉️", work: "🛡️", world: "🌍", today: "✅" };
-export const TAG_ICON: Record<string, string> = { meeting: "🕒", task: "☐", reply: "↩", review: "🔎", security: "⚠️", release: "🚀", "open-loop": "↻", "awaiting-reply": "↩", unread: "✉️", breaking: "💥", major: "📣", news: "📰", politics: "🏛️", world: "🌍", finance: "💷", priority: "⭐", reminder: "🔔", note: "📝" };
+export const SECTION_ICON: Record<string, string> = { chess: "puzzle", notes: "note", meetings: "calendar", email: "mail", work: "shield", world: "globe", today: "check" };
+export const TAG_ICON: Record<string, string> = { meeting: "clock", task: "box", reply: "reply", review: "search", security: "warning", release: "rocket", "open-loop": "loop", "awaiting-reply": "reply", unread: "mail", breaking: "flame", major: "megaphone", news: "news", politics: "bank", world: "globe", finance: "pound", priority: "star", reminder: "bell", note: "note" };
 export const TAG_MEANING: Record<string, string> = {
   breaking: "Breaking change — may need action in your code or setup.",
   major: "New major version — worth reading what changed before upgrading.",

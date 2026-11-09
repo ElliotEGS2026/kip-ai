@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import type { Item, Outcome, Puzzle as PuzzleData, Section } from "../shared/schema";
 import { api } from "./api";
+import { Icon } from "./Icon";
 import { addDays, localDate } from "../shared/dates";
 import { SECTION_ICON, TAG_ICON, TAG_MEANING, ago, host, repoOf, time } from "./format";
 import { NoteEdit, NotesCapture } from "./Notes";
@@ -62,8 +63,8 @@ function Thumbs({ item }: { item: Item }) {
   if (!item.url) return null;
   return done ? <span className="muted">{done}</span> : (
     <span className="thumbs">
-      <button title="More from this source" onClick={() => send("up")}>👍 More like this</button>
-      <button title="Block this source" onClick={() => send("down")}>👎 Block source</button>
+      <button title="More from this source" onClick={() => send("up")}><Icon name="thumbup" /> More like this</button>
+      <button title="Block this source" onClick={() => send("down")}><Icon name="thumbdown" /> Block source</button>
     </span>
   );
 }
@@ -106,15 +107,15 @@ function Puzzle({ slide }: { slide: Slide }) {
 }
 
 const PLAN_GROUPS = [
-  { tag: "meeting", title: "Meetings", icon: "📅", empty: "No meetings today" },
-  { tag: "task", title: "Tasks", icon: "☑️", empty: "No open tasks" },
-  { tag: "reply", title: "Replies owed", icon: "↩️", empty: "No replies waiting" },
-  { tag: "review", title: "To review", icon: "🔎", empty: "Nothing to review" },
+  { tag: "meeting", title: "Meetings", icon: "calendar", empty: "No meetings today" },
+  { tag: "task", title: "Tasks", icon: "box", empty: "No open tasks" },
+  { tag: "reply", title: "Replies owed", icon: "reply", empty: "No replies waiting" },
+  { tag: "review", title: "To review", icon: "search", empty: "Nothing to review" },
 ];
 
 /** Today's plan: one column, in the order you'd work through the day (meetings, tasks, replies, review). */
 function PlanBody({ s }: { s: Section }) {
-  if (s.items.length === 0) return <div className="slide"><div className="big-ico" aria-hidden="true">🎉</div><h3 className="slide-title">A clear day</h3><p className="muted">Nothing scheduled or outstanding.</p><Warnings s={s} /></div>;
+  if (s.items.length === 0) return <div className="slide"><div className="big-ico" aria-hidden="true"><Icon name="sparkle" /></div><h3 className="slide-title">A clear day</h3><p className="muted">Nothing scheduled or outstanding.</p><Warnings s={s} /></div>;
   const byTime = (a: Item, b: Item): number => (a.start ?? "").localeCompare(b.start ?? "");
   return (
     <div className="plan-view" data-testid="plan">
@@ -123,7 +124,7 @@ function PlanBody({ s }: { s: Section }) {
         const items = s.items.filter((i) => i.tag === g.tag).sort(g.tag === "meeting" ? byTime : () => 0);
         return (
           <section key={g.tag} className={`plan-block ${items.length === 0 ? "is-empty" : ""}`} data-testid={`plan-${g.tag}`}>
-            <h3><span className="plan-num">{gi + 1}</span><span aria-hidden="true">{g.icon}</span> {g.title}<span className="plan-count">{items.length}</span></h3>
+            <h3><span className="plan-num">{gi + 1}</span><span aria-hidden="true"><Icon name={g.icon} /></span> {g.title}<span className="plan-count">{items.length}</span></h3>
             {items.length === 0 ? <p className="muted small plan-none">{g.empty}</p> : (
               <ul>{items.map((i) => (
                 <li key={i.id}>
@@ -146,7 +147,7 @@ function NotesPage({ slide, ui, setNote }: { slide: Slide; ui: Record<string, No
   const items = (slide.items ?? []).filter((i) => !noteState(i, ui).deleted);
   return (
     <div className="slide wide notes-page">
-      <h3 className="slide-title">📝 Your notes</h3>
+      <h3 className="slide-title"><Icon name="note" /> Your notes</h3>
       <p className="muted">Tick <b>Completed</b> when a note is done — it is struck out, can be deleted, and drops off tomorrow. Anything not completed stays on your list.</p>
       <ul className="note-list" data-testid="note-list">
         {items.map((item) => {
@@ -168,7 +169,7 @@ function NotesPage({ slide, ui, setNote }: { slide: Slide; ui: Record<string, No
                   <button className={`star ${st.priority ? "on" : ""}`} data-testid="note-priority" aria-pressed={st.priority} title="Priority notes are listed first" onClick={() => setNote(item, { priority: !st.priority })}>
                     {st.priority ? "⭐ Priority" : "☆ Priority"}
                   </button>
-                  {st.completed && <button className="del" data-testid="note-delete" title="Remove this note for good" onClick={() => setNote(item, { deleted: true })}>🗑 Delete</button>}
+                  {st.completed && <button className="del" data-testid="note-delete" title="Remove this note for good" onClick={() => setNote(item, { deleted: true })}><Icon name="trash" /> Delete</button>}
                 </div>
               )}
             </li>
@@ -187,12 +188,12 @@ export function SlideView({ slide, noteUi, setNote }: { slide: Slide; noteUi: Re
   if (slide.kind === "plan") return <PlanBody s={s} />;
   if (slide.kind === "notes") return <NotesPage slide={slide} ui={noteUi} setNote={setNote} />;
   if (slide.kind === "capture") {
-    return <div className="slide wide"><div className="big-ico" aria-hidden="true">🎙</div><h3 className="slide-title">Add a new note</h3><p className="muted">Type or speak a note. It is saved automatically when you leave this page, then stays on your list until you complete it.</p><NotesCapture onSaved={onSaved} /></div>;
+    return <div className="slide wide"><div className="big-ico" aria-hidden="true"><Icon name="mic" /></div><h3 className="slide-title">Add a new note</h3><p className="muted">Type or speak a note. It is saved automatically when you leave this page, then stays on your list until you complete it.</p><NotesCapture onSaved={onSaved} /></div>;
   }
   if (slide.kind === "status") {
     return (
       <div className="slide">
-        <div className="big-ico" aria-hidden="true">{s.status === "error" ? "⚠️" : s.status === "not_configured" ? "🔌" : SECTION_ICON[s.id]}</div>
+        <div className="big-ico" aria-hidden="true"><Icon name={s.status === "error" ? "warning" : s.status === "not_configured" ? "plug" : SECTION_ICON[s.id] ?? "puzzle"} /></div>
         <h3 className="slide-title">{s.status === "error" ? "Something went wrong" : s.status === "not_configured" ? "Not set up yet" : "Nothing to show"}</h3>
         {s.message && <p className={s.status === "error" ? "err" : "muted"}>{s.message}</p>}
         <Warnings s={s} />
@@ -210,7 +211,7 @@ export function SlideView({ slide, noteUi, setNote }: { slide: Slide; noteUi: Re
   return (
     <div className="slide">
       {sourced && <SeenMarker id={item.id} />}
-      <div className="big-ico" aria-hidden="true">{(item.tag && TAG_ICON[item.tag]) || SECTION_ICON[s.id]}</div>
+      <div className="big-ico" aria-hidden="true"><Icon name={(item.tag && TAG_ICON[item.tag]) || SECTION_ICON[s.id] || "puzzle"} /></div>
       <p className="kicker">
         {item.start && <span className="time">{time(item.start)}</span>}
         {item.tag && item.tag !== "note" && <span className={`tag tag-${item.tag}`}>{item.tag}</span>}
@@ -227,7 +228,7 @@ export function SlideView({ slide, noteUi, setNote }: { slide: Slide; noteUi: Re
       </dl>
       {item.url && <p><a className="bigbtn" href={item.url} target="_blank" rel="noreferrer noopener">{openLabel}</a></p>}
       {sourced && <p><Thumbs item={item} /></p>}
-      {sourced && s.warnings.length > 0 && <div className="flag" role="alert" data-testid="source-flag">🚩 <b>Source problem</b>{s.warnings.map((w) => <span key={w}>{w}</span>)}</div>}
+      {sourced && s.warnings.length > 0 && <div className="flag" role="alert" data-testid="source-flag"><Icon name="flag" /> <b>Source problem</b>{s.warnings.map((w) => <span key={w}>{w}</span>)}</div>}
     </div>
   );
 }

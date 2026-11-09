@@ -42,10 +42,11 @@ export function Starfield() {
       }
       if (!still) raf = requestAnimationFrame(draw);
     };
+    const onResize = () => { resize(); if (still) draw(0); }; // a resized canvas is blank: repaint the still frame
     resize();
-    window.addEventListener("resize", resize);
+    window.addEventListener("resize", onResize);
     raf = requestAnimationFrame(draw);
-    return () => { cancelAnimationFrame(raf); window.removeEventListener("resize", resize); };
+    return () => { cancelAnimationFrame(raf); window.removeEventListener("resize", onResize); };
   }, []);
   return <canvas ref={ref} className="starfield" aria-hidden="true" />;
 }

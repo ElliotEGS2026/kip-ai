@@ -3,6 +3,7 @@ import type { Briefing, Section } from "../shared/schema";
 import { pad } from "../shared/dates";
 import { api, today } from "./api";
 import { SECTION_ICON } from "./format";
+import { Icon } from "./Icon";
 import { Clock, Connect, Core } from "./Hud";
 import { Reader } from "./Reader";
 import { NoteSavedCtx, buildSlides, noteState, type NoteUi, type SetNote, type Slide } from "./Slides";
@@ -17,6 +18,7 @@ type Panel = { kind: "group"; group: string; idx: number } | null;
 export function App() {
   const [brief, setBrief] = useState<Briefing | null>(null);
   const [err, setErr] = useState("");
+  const [notesAsked, setNotesAsked] = useState(false); // the "notes aren't completed" popup shows once per walkthrough
   const [stopped, setStopped] = useState(false);
   /** -1 = intro, 0..slides-1 = walking, slides.length = all done (spread out). */
   const [step, setStep] = useState(-1);
@@ -77,7 +79,7 @@ export function App() {
   const intro = !brief
     ? { label: err ? "OFFLINE" : "LOADING", sub: "KIP", progress: 0.15 }
     : step < 0 ? { label: "KIP", sub: "TAP TO BEGIN", progress: 0.08 }
-    : { label: "🎙 NOTES", sub: "REVIEW & ADD · TAP", progress: 1 };
+    : { label: "NOTES", sub: "REVIEW & ADD · TAP", progress: 1 };
 
   const openSection = (id: string) => {
     const g = id === "chess" || id === "notes" ? "warm" : id;
@@ -97,8 +99,8 @@ export function App() {
         <div className="brand">Kip<span>.</span><small>MORNING BRIEFING</small></div>
         <nav className="pips" aria-label="Progress">
           {groups.map((g, i) => (
-            <button key={g} className={`pip ${g === curGroup ? "on" : ""} ${(walking && curGroup && groups.indexOf(curGroup) > i) || done ? "seen" : ""}`} title={titleOf(g)}
-              onClick={() => (done ? setPanel({ kind: "group", group: g, idx: 0 }) : (setPanel(null), setStep(firstOf(g))))}><span aria-hidden="true">{SECTION_ICON[g] ?? "🧩"}</span> {pad(i + 1)}</button>
+            <button key={g} className={`pip ${g === curGroup ? "on" : ""} ${(walking && curGroup && groups.indexOf(curGroup) > i) || done ? "seen" : ""}`} title={titleOf(g)} aria-label={`${titleOf(g)}, section ${i + 1} of ${groups.length}`} aria-current={g === curGroup ? "step" : undefined}
+              onClick={() => (done ? setPanel({ kind: "group", group: g, idx: 0 }) : (setPanel(null), setStep(firstOf(g))))}><span aria-hidden="true"><Icon name={SECTION_ICON[g] ?? "puzzle"} /></span> {pad(i + 1)}</button>
           ))}
         </nav>
         <div className="hud-right">
@@ -111,19 +113,19 @@ export function App() {
 
       {!walking && (
         <div className="center">
-          <Core {...intro} onClick={brief ? (step < 0 ? () => setStep(0) : () => openSection("notes")) : undefined} />
+          <Core {...intro} onClick={brief ? (step < 0 ? () => { setNotesAsked(false); setStep(0); } : () => openSection("notes")) : undefined} />
           {brief && step < 0 && <p className="hint">Press the core to start — one item at a time.</p>}
           {done && sections.map((s, i) => (
             <button key={s.id} className={`orb ${s.status}`} style={{ "--a": `${(360 / sections.length) * i - 90}deg` } as React.CSSProperties} onClick={() => openSection(s.id)}>
-              <span className="orb-ico" aria-hidden="true">{SECTION_ICON[s.id]}</span><b>{countLabel(s)}</b><span>{s.title}</span>
+              <span className="orb-ico" aria-hidden="true"><Icon name={SECTION_ICON[s.id] ?? "puzzle"} /></span><b>{countLabel(s)}</b><span>{s.title}</span>
             </button>
           ))}
-          {done && <button className="again ghost" onClick={() => { setStep(0); setPanel(null); }}>↻ Replay briefing</button>}
+          {done && <button className="again ghost" onClick={() => { setNotesAsked(false); setStep(0); setPanel(null); }}>↻ Replay briefing</button>}
         </div>
       )}
 
       {walking && !panel && (
-        <Reader slides={slides} idx={step} setIdx={setStep} titleOf={titleOf} onFinish={() => setStep(n)} onClose={() => setStep(n)} finishLabel="Finish ✓" ringProgress={(step + 1) / n} noteUi={noteUi} setNote={setNote} />
+        <Reader slides={slides} idx={step} setIdx={setStep} titleOf={titleOf} onFinish={() => setStep(n)} onClose={() => setStep(n)} finishLabel="Finish ✓" askOnce={{ done: notesAsked, mark: () => setNotesAsked(true) }} ringProgress={(step + 1) / n} noteUi={noteUi} setNote={setNote} />
       )}
 
       {panel?.kind === "group" && groupSlides.length > 0 && (

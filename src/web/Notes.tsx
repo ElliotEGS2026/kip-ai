@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Item } from "../shared/schema";
 import { api } from "./api";
+import { Icon } from "./Icon";
 import { useDictation } from "./Voice";
 
 /**
@@ -29,7 +30,7 @@ export function NotesCapture({ onSaved }: { onSaved?: () => void }) {
         />
         {voice.supported && (
           <button type="button" className={`mic ${voice.listening ? "live" : ""}`} onClick={voice.listening ? voice.stop : voice.start} aria-pressed={voice.listening} title={voice.listening ? "Stop dictation" : "Dictate a note"}>
-            {voice.listening ? "■ Stop" : "🎙 Speak"}
+            {voice.listening ? "■ Stop" : <><Icon name="mic" /> Speak</>}
           </button>
         )}
       </div>
