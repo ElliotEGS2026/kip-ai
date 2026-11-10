@@ -146,8 +146,12 @@ test("summary pips and the notes core open their panels", async ({ page }) => {
   await page.getByTitle("Email").click();
   await expect(page.getByRole("dialog", { name: "Email" })).toBeVisible();
   await page.keyboard.press("Escape");
-  await page.locator(".center .core").click();
+  await page.getByTestId("core-view-notes").click();
   await expect(page.getByRole("dialog", { name: "Warm-up" })).toBeVisible();
+  await expect(page.getByRole("tab", { name: /Previous notes/ })).toHaveAttribute("aria-selected", "true");
+  await page.keyboard.press("Escape");
+  await page.getByTestId("core-new-note").click();
+  await expect(page.getByRole("heading", { name: "Add a new note" })).toBeVisible();
 });
 
 test("Warm-up tabs switch between brain teaser and notes", async ({ page }) => {

@@ -68,6 +68,27 @@ async function inspect(page: Page, vp: string, screen: string, n: number): Promi
         if (a.left < c.right - 1 && c.left < a.right - 1 && a.top < c.bottom - 1 && c.top < a.bottom - 1) issues.push(`HUD overlap: ${label(kids[i]!.k)} / ${label(kids[j]!.k)}`);
       }
     }
+    // Text inside a circle (summary orbs, the split notes core) must stay inside that circle: every line box corner.
+    const insideCircle = (circle: Element, radiusFactor: number, textRoot: Element) => {
+      const c = circle.getBoundingClientRect();
+      const cx = c.left + c.width / 2, cy = c.top + c.height / 2, r = (c.width / 2) * radiusFactor;
+      const walker = document.createTreeWalker(textRoot, NodeFilter.SHOW_TEXT);
+      for (let t = walker.nextNode(); t; t = walker.nextNode()) {
+        if (!t.textContent?.trim()) continue;
+        const host = t.parentElement?.getBoundingClientRect();
+        if (host && host.width <= 1 && host.height <= 1) continue; // visually hidden (screen-reader-only) label
+        const range = document.createRange(); range.selectNodeContents(t);
+        for (const lr of range.getClientRects()) {
+          for (const [x, y] of [[lr.left, lr.top], [lr.right, lr.top], [lr.left, lr.bottom], [lr.right, lr.bottom]] as const) {
+            if (Math.hypot(x - cx, y - cy) > r + 1) return `text “${t.textContent.trim().slice(0, 28)}” spills out of its circle`;
+          }
+        }
+      }
+      return "";
+    };
+    for (const orb of document.querySelectorAll(".orb")) { const p = insideCircle(orb, 1, orb); if (p) issues.push(p); }
+    const split = document.querySelector(".core-split");
+    if (split) for (const half of split.querySelectorAll(".half")) { const p = insideCircle(split, 104 / 140, half); if (p) issues.push(p); }
     // Panel taller than viewport on desktop layout?
     const panel = document.querySelector(".panel");
     if (panel && !window.matchMedia("(max-width:820px)").matches) {
