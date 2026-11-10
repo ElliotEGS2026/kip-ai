@@ -46,7 +46,8 @@ export function Reader({ slides, idx, setIdx, titleOf, onFinish, onClose, finish
           <button role="tab" aria-selected={slide.tab === "notes"} className={slide.tab === "notes" ? "on" : ""} onClick={() => setIdx(first("notes"))}><Icon name="note" /> Previous notes</button>
         </div>
       )}
-      <div className="panel-body" key={idx}><SlideView slide={slide} noteUi={noteUi} setNote={setNote} /></div>
+      {/* Keyed by slide identity, not index: saving a note can add a notes page and shift indexes, which must not reset the page you're typing on. */}
+      <div className="panel-body" key={`${slide.section.id}|${slide.kind}|${slide.item?.id ?? slide.n ?? ""}`}><SlideView slide={slide} noteUi={noteUi} setNote={setNote} /></div>
       <div className="panel-foot">
         <p className="muted small count">{counter}</p>
         <div className="nav">

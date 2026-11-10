@@ -27,7 +27,10 @@ const P: Record<string, string> = {
   trash: "M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14M10 11v6M14 11v6",
   flag: "M5 21V4M5 4h13l-3 4 3 4H5",
   thumbup: "M7 11v10H3V11zM7 11l4-8c2 0 3 1 3 3v4h6l-1 9a2 2 0 0 1-2 2H7",
-  thumbdown: "M7 13V3H3v10zM7 13l4 8c2 0 3-1 3-3v-4h6l-1-9a2 2 0 0 0-2-2H7",
+  tag: "M3 12V3h9l9 9-9 9zM7.5 7.5h.01",
+  eye:"M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z",
+  notePlus: "M6 3h9l4 4v14H6zM14 3v5h5M12.5 11v6M9.5 14h6",
+  thumbdown:"M7 13V3H3v10zM7 13l4 8c2 0 3-1 3-3v-4h6l-1-9a2 2 0 0 0-2-2H7",
 };
 
 /** Emoji replaced by icons: map of tag/section keys to icon names. */

@@ -138,7 +138,15 @@ Radius scale: 4px chips and pips, 6px controls, 12px panels and popups, pill and
 Monospace chips, 28px minimum height (36px on phones): muted at rest, red border when seen, red fill and glow when current. Each carries an accessible name and `aria-current`.
 
 ### Core and orbs
-An SVG reactor with three rings and a progress arc. At the end the sections spread into orbs around it with their counts; error orbs are amber, unconfigured orbs dashed.
+An SVG reactor with three rings and a progress arc. At the end the sections spread into orbs around it with their counts; error orbs are amber, unconfigured orbs dashed. Orb labels use a short name when the section title is long ("Notes", "Meetings"), and on phones an orb shows its count and name only, so every word stays inside its circle (the layout audit checks this).
+
+On the summary screen the core splits down the middle with a fading red hairline: the left half (eye icon) opens your notes, the right half (note-plus icon) opens "Add a new note". Each half is its own button; hovering lights a soft red glow from the divider outwards. When the core is too small for words (phones), the halves show icons only and keep their labels for screen readers.
+
+### News feedback
+Work and world items carry three outlined buttons: More like this, Block source, Block topic. Block topic opens an inline picker (not a modal) under them: pill chips suggested from the headline (names first, e.g. "rachel reeves"), a text box for your own word, and Block topic / Cancel. It keeps the outlet and writes the word to `## Topics` in `config/blocklist.md`; headlines containing it as a whole word or phrase are dropped from the next brief. Escape or Cancel closes it without saving.
+
+### Note composer
+A textarea with Speak inside it, then a row with a live status line and a primary "Save note" button (also Ctrl+Enter). Saving clears the box and focuses it for the next note, and the status line counts how many notes you've saved. Anything left in the box is still saved when you leave the page.
 
 ### Panel and popup
 The panel is the only reading surface. The "notes aren't completed" popup (shown once per walkthrough, never in a panel reopened from the summary, and again after Replay) sits inside it, scrolls on short screens, focuses its safe option first, and owns Escape and the arrow keys while open.

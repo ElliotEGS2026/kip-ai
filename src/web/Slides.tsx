@@ -6,6 +6,7 @@ import { addDays, localDate } from "../shared/dates";
 import { SECTION_ICON, TAG_ICON, TAG_MEANING, ago, host, repoOf, time } from "./format";
 import { NoteEdit, NotesCapture } from "./Notes";
 import { chunkNotes } from "./notesPaging";
+import { topicSuggestions } from "./topics";
 
 /** One screen of the walkthrough. Every item gets its own slide so nothing is skimmed past. */
 export interface Slide {
@@ -59,13 +60,62 @@ function SeenMarker({ id }: { id: string }) {
 
 function Thumbs({ item }: { item: Item }) {
   const [done, setDone] = useState("");
+  const [picking, setPicking] = useState(false);
   const send = (kind: "up" | "down") => api("/api/feedback", { kind, target: "source", value: (host(item.url) === "news.google.com" && item.source ? item.source : item.url) ?? "" }).then(() => setDone(kind === "up" ? "★ saved" : "blocked")).catch(() => setDone("failed"));
   if (!item.url) return null;
-  return done ? <span className="muted">{done}</span> : (
-    <span className="thumbs">
-      <button title="More from this source" onClick={() => send("up")}><Icon name="thumbup" /> More like this</button>
-      <button title="Block this source" onClick={() => send("down")}><Icon name="thumbdown" /> Block source</button>
-    </span>
+  if (done) return <p className="muted feedback-done" role="status">{done}</p>;
+  return (
+    <div className="feedback">
+      <span className="thumbs">
+        <button title="More from this source" onClick={() => send("up")}><Icon name="thumbup" /> More like this</button>
+        <button title="Block this source" onClick={() => send("down")}><Icon name="thumbdown" /> Block source</button>
+        <button title="Keep the source, hide stories about this subject" aria-expanded={picking} aria-controls={`topic-${item.id}`} className={picking ? "on" : ""} onClick={() => setPicking((p) => !p)}>
+          <Icon name="tag" /> Block topic
+        </button>
+      </span>
+      {picking && <TopicPicker id={`topic-${item.id}`} title={item.title} onCancel={() => setPicking(false)} onDone={setDone} />}
+    </div>
+  );
+}
+
+/**
+ * Block a kind of story rather than the outlet: pick a name or word from the headline (or type one) and every headline
+ * containing it, from any source, is dropped from the next brief. Saved under "## Topics" in config/blocklist.md.
+ */
+function TopicPicker({ id, title, onCancel, onDone }: { id: string; title: string; onCancel: () => void; onDone: (msg: string) => void }) {
+  const suggestions = topicSuggestions(title);
+  const [value, setValue] = useState("");
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+  const input = useRef<HTMLInputElement>(null);
+  useEffect(() => { input.current?.focus(); }, []);
+  const topic = value.trim().replace(/\s+/g, " ");
+  const block = () => {
+    if (topic.length < 3 || busy) { setErr("Use at least 3 letters, so it doesn't catch unrelated headlines."); return; }
+    setBusy(true);
+    api<{ value: string }>("/api/feedback", { kind: "down", target: "topic", value: topic })
+      .then((r) => onDone(`Topic “${r.value}” blocked. Headlines that mention it are left out of your next brief, from any source. To undo, remove it from config/blocklist.md.`))
+      .catch((e: Error) => { setErr(`Could not block that topic (${e.message}).`); setBusy(false); });
+  };
+  return (
+    <div className="topic-picker" id={id} role="group" aria-labelledby={`${id}-label`} data-testid="topic-picker">
+      <p className="topic-label" id={`${id}-label`}>Hide stories about…</p>
+      {suggestions.length > 0 && (
+        <div className="topic-chips">
+          {suggestions.map((s) => (
+            <button key={s} type="button" className={`chip ${topic.toLowerCase() === s ? "on" : ""}`} aria-pressed={topic.toLowerCase() === s} onClick={() => { setValue(s); setErr(""); input.current?.focus(); }}>{s}</button>
+          ))}
+        </div>
+      )}
+      <div className="topic-row">
+        <input ref={input} type="text" value={value} maxLength={80} aria-label="Topic to hide" placeholder="or type a word or name" data-testid="topic-input"
+          onChange={(e) => { setValue(e.target.value); setErr(""); }}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); block(); } if (e.key === "Escape") { e.preventDefault(); onCancel(); } }} />
+        <button type="button" onClick={block} disabled={!topic || busy} data-testid="topic-block">{busy ? "Blocking…" : "Block topic"}</button>
+        <button type="button" className="ghost" onClick={onCancel}>Cancel</button>
+      </div>
+      <p className={`small ${err ? "err" : "muted"}`} role={err ? "alert" : undefined}>{err || "The source stays. Any headline containing this word or name is dropped, whichever outlet runs it."}</p>
+    </div>
   );
 }
 
@@ -188,7 +238,7 @@ export function SlideView({ slide, noteUi, setNote }: { slide: Slide; noteUi: Re
   if (slide.kind === "plan") return <PlanBody s={s} />;
   if (slide.kind === "notes") return <NotesPage slide={slide} ui={noteUi} setNote={setNote} />;
   if (slide.kind === "capture") {
-    return <div className="slide wide"><div className="big-ico" aria-hidden="true"><Icon name="mic" /></div><h3 className="slide-title">Add a new note</h3><p className="muted">Type or speak a note. It is saved automatically when you leave this page, then stays on your list until you complete it.</p><NotesCapture onSaved={onSaved} /></div>;
+    return <div className="slide wide capture"><div className="big-ico" aria-hidden="true"><Icon name="mic" /></div><h3 className="slide-title">Add a new note</h3><p className="muted">Type or speak a note, then press Save note (or Ctrl+Enter) to add it and start the next. Each note stays on your list until you complete it.</p><NotesCapture onSaved={onSaved} /></div>;
   }
   if (slide.kind === "status") {
     return (
@@ -227,7 +277,7 @@ export function SlideView({ slide, noteUi, setNote }: { slide: Slide; noteUi: Re
         {item.date && <><dt>{s.id === "notes" ? "Written" : "Published"}</dt><dd>{item.date}{ago(item.date) ? ` (${ago(item.date)})` : ""}</dd></>}
       </dl>
       {item.url && <p><a className="bigbtn" href={item.url} target="_blank" rel="noreferrer noopener">{openLabel}</a></p>}
-      {sourced && <p><Thumbs item={item} /></p>}
+      {sourced && <Thumbs key={item.id} item={item} />}
       {sourced && s.warnings.length > 0 && <div className="flag" role="alert" data-testid="source-flag"><Icon name="flag" /> <b>Source problem</b>{s.warnings.map((w) => <span key={w}>{w}</span>)}</div>}
     </div>
   );

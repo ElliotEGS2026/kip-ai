@@ -30,7 +30,7 @@ test("leave popup shows once per walkthrough, never in a reopened panel, and aga
   await expect(page.getByTestId("leave-popup")).toHaveCount(0); // already asked this walkthrough
   for (let i = 0; i < 40 && !(await page.getByRole("button", { name: /^Finish/ }).count()); i++) await next(page).click();
   await page.getByRole("button", { name: /^Finish/ }).click();
-  await page.getByRole("button", { name: /NOTES/ }).click(); // notes panel from the summary
+  await page.getByRole("button", { name: "View notes" }).click(); // notes panel from the summary
   await next(page).click();
   await expect(page.getByTestId("leave-popup")).toHaveCount(0); // panels never ask
   await page.getByRole("button", { name: /✕ Close/ }).click();

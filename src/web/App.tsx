@@ -4,13 +4,15 @@ import { pad } from "../shared/dates";
 import { api, today } from "./api";
 import { SECTION_ICON } from "./format";
 import { Icon } from "./Icon";
-import { Clock, Connect, Core } from "./Hud";
+import { Clock, Connect, Core, NotesCore } from "./Hud";
 import { Reader } from "./Reader";
 import { NoteSavedCtx, buildSlides, noteState, type NoteUi, type SetNote, type Slide } from "./Slides";
 import { Kips } from "./Kips";
 import { Starfield } from "./Starfield";
 
 const GROUP_TITLE: Record<string, string> = { warm: "Warm-up" };
+/** Short orb labels: long section titles ("Previous notes & open loops") don't fit inside a small circle. */
+const ORB_LABEL: Record<string, string> = { notes: "Notes", meetings: "Meetings" };
 const countLabel = (s: Section): string => (s.status === "ok" ? String(s.id === "chess" ? s.puzzles?.length ?? (s.puzzle ? 1 : 0) : s.items.length) : s.status === "error" ? "!" : "–");
 
 type Panel = { kind: "group"; group: string; idx: number } | null;
@@ -44,7 +46,8 @@ export function App() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLTextAreaElement) return;
+      // Typing never moves the slide: text boxes keep Enter, arrows and Escape for themselves.
+      if (e.target instanceof HTMLTextAreaElement || (e.target instanceof HTMLInputElement && e.target.type === "text")) return;
       if (e.key === "Escape") { if (panel) setPanel(null); else if (walking) setStep(slides.length); }
       // Keyboard Next skips note pages: those go through the button so the "not completed" check can run.
       const onNotes = slides[step]?.kind === "notes";
@@ -78,14 +81,18 @@ export function App() {
 
   const intro = !brief
     ? { label: err ? "OFFLINE" : "LOADING", sub: "KIP", progress: 0.15 }
-    : step < 0 ? { label: "KIP", sub: "TAP TO BEGIN", progress: 0.08 }
-    : { label: "NOTES", sub: "REVIEW & ADD · TAP", progress: 1 };
+    : { label: "KIP", sub: "TAP TO BEGIN", progress: 0.08 };
 
   const openSection = (id: string) => {
     const g = id === "chess" || id === "notes" ? "warm" : id;
     // Index must be within the group's own slide list (not the global list), so it opens on that section's first item.
     const at = slides.filter((s) => s.group === g).findIndex((s) => s.section.id === id);
     setPanel({ kind: "group", group: g, idx: Math.max(0, at) });
+  };
+  /** Opens the warm-up panel straight on the "Add a new note" page. */
+  const openCapture = () => {
+    const at = slides.filter((s) => s.group === "warm").findIndex((s) => s.kind === "capture");
+    if (at < 0) openSection("notes"); else setPanel({ kind: "group", group: "warm", idx: at });
   };
   const groupSlides = panel?.kind === "group" ? slides.filter((s) => s.group === panel.group) : [];
   live.current = { key: slideKey(panel?.kind === "group" ? groupSlides[Math.min(panel.idx, groupSlides.length - 1)] : walking ? slides[step] : undefined), group: panel?.group };
@@ -113,11 +120,13 @@ export function App() {
 
       {!walking && (
         <div className="center">
-          <Core {...intro} onClick={brief ? (step < 0 ? () => { setNotesAsked(false); setStep(0); } : () => openSection("notes")) : undefined} />
+          {done
+            ? <NotesCore progress={1} onView={() => openSection("notes")} onNew={openCapture} />
+            : <Core {...intro} onClick={brief ? () => { setNotesAsked(false); setStep(0); } : undefined} />}
           {brief && step < 0 && <p className="hint">Press the core to start — one item at a time.</p>}
           {done && sections.map((s, i) => (
             <button key={s.id} className={`orb ${s.status}`} style={{ "--a": `${(360 / sections.length) * i - 90}deg` } as React.CSSProperties} onClick={() => openSection(s.id)}>
-              <span className="orb-ico" aria-hidden="true"><Icon name={SECTION_ICON[s.id] ?? "puzzle"} /></span><b>{countLabel(s)}</b><span>{s.title}</span>
+              <span className="orb-ico" aria-hidden="true"><Icon name={SECTION_ICON[s.id] ?? "puzzle"} /></span><b>{countLabel(s)}</b><span>{ORB_LABEL[s.id] ?? s.title}</span>
             </button>
           ))}
           {done && <button className="again ghost" onClick={() => { setNotesAsked(false); setStep(0); setPanel(null); }}>↻ Replay briefing</button>}

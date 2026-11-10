@@ -59,6 +59,12 @@ describe("parsers", () => {
       { blockedOutlets: ["bad.com"], blockedTopics: ["sport"], favOutlets: ["fav.com"], favTopics: [], work: [], platform: [], world: [], politics: [], economy: [] });
     expect(out.map((x) => x.title)).toEqual(["old fav", "fine"]);
   });
+  it("blocked topics match whole words and phrases, not parts of words", () => {
+    const e = (t: string, ms: number) => ({ title: t, url: `https://ok.com/${ms}`, date: "2026-11-01", ms });
+    const out = applyPrefs([e("War in Sudan escalates", 1), e("Storm warning for Wales", 2), e("Rachel Reeves sets out budget", 3), e("Reeves-era policy", 4), e("Rachel   Reeves again", 5)],
+      { blockedOutlets: [], blockedTopics: ["war", "rachel reeves"], favOutlets: [], favTopics: [], work: [], platform: [], world: [], politics: [], economy: [] });
+    expect(out.map((x) => x.title).sort()).toEqual(["Reeves-era policy", "Storm warning for Wales"]);
+  });
   it("classifies wide-spread changes and filters platform noise", () => {
     expect(classify("Node.js 27 is now available", undefined, "news")).toBe("major");
     expect(classify("v3.0.0", "BREAKING CHANGE: drops CJS", "release")).toBe("breaking");

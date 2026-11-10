@@ -27,6 +27,41 @@ test("👎 on a world item blocks the outlet in blocklist.md", async ({ page }) 
   expect(readConfig("blocklist.md")).toMatch(/## Outlets\r?\n- news\.example\.org/);
 });
 
+test("Block topic keeps the source and blocks the chosen subject in blocklist.md", async ({ page }) => {
+  await startWalk(page);
+  await page.getByTitle("World news").click();
+  await page.getByRole("button", { name: /Block topic/ }).click();
+  const picker = page.getByTestId("topic-picker");
+  await expect(picker).toBeVisible();
+  await expect(page.getByTestId("topic-input")).toBeFocused();
+  await picker.getByRole("button", { name: "story" }).click(); // a suggestion from the headline “World story one”
+  await expect(page.getByTestId("topic-input")).toHaveValue("story");
+  await page.keyboard.press("ArrowRight"); // typing keys stay in the box, the slide doesn't move
+  await expect(page.locator(".count")).toContainText("1 of");
+  await page.getByTestId("topic-input").fill("  Middle   East ");
+  await page.getByTestId("topic-input").press("Enter");
+  await expect(page.getByText("Topic “middle east” blocked")).toBeVisible();
+  const block = readConfig("blocklist.md");
+  expect(block).toMatch(/## Topics\r?\n- middle east/);
+  expect(block).not.toMatch(/## Outlets\r?\n- news\.example\.org/); // the source is not blocked
+});
+
+test("Block topic: Cancel and Escape close the picker without saving; too-short topics are refused", async ({ page }) => {
+  await startWalk(page);
+  await page.getByTitle("World news").click();
+  await page.getByRole("button", { name: /Block topic/ }).click();
+  await page.getByTestId("topic-input").fill("ab");
+  await page.getByTestId("topic-block").click();
+  await expect(page.getByTestId("topic-picker")).toContainText("at least 3 letters");
+  await page.getByTestId("topic-input").press("Escape");
+  await expect(page.getByTestId("topic-picker")).toHaveCount(0);
+  await expect(page.getByRole("dialog")).toBeVisible(); // Escape closed only the picker
+  await page.getByRole("button", { name: /Block topic/ }).click();
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await expect(page.getByTestId("topic-picker")).toHaveCount(0);
+  expect(readConfig("blocklist.md")).toMatch(/## Topics\s*$/);
+});
+
 test("feedback buttons appear on job-critical items, but not on meetings", async ({ page }) => {
   await startWalk(page);
   await page.getByTitle("Job-critical").click();
